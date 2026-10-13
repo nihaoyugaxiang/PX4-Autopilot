@@ -46,6 +46,7 @@
 #include <drivers/drv_hrt.h>
 
 #include <semaphore.h>
+#include <pthread.h>
 #include <time.h>
 #include <string.h>
 #include <errno.h>
@@ -81,7 +82,8 @@ const uint16_t latency_bucket_count = LATENCY_BUCKET_COUNT;
 const uint16_t latency_buckets[LATENCY_BUCKET_COUNT] = { 1, 2, 5, 10, 20, 50, 100, 1000 };
 __EXPORT uint32_t latency_counters[LATENCY_BUCKET_COUNT + 1];
 
-static px4_sem_t 	_hrt_lock;
+// Backport POSIX HRT queue protection from PX4 upstream: allow same-thread callback re-entry.
+static pthread_mutex_t	_hrt_lock;
 static struct work_s	_hrt_work;
 
 static void hrt_latency_update();
@@ -91,13 +93,12 @@ static void hrt_call_invoke();
 
 static void hrt_lock()
 {
-	// loop as the wait may be interrupted by a signal
-	do {} while (px4_sem_wait(&_hrt_lock) != 0);
+	pthread_mutex_lock(&_hrt_lock);
 }
 
 static void hrt_unlock()
 {
-	px4_sem_post(&_hrt_lock);
+	pthread_mutex_unlock(&_hrt_lock);
 }
 
 /*
@@ -221,11 +222,14 @@ void	hrt_init()
 {
 	sq_init(&callout_queue);
 
-	int sem_ret = px4_sem_init(&_hrt_lock, 0, 1);
-
-	if (sem_ret) {
-		PX4_ERR("SEM INIT FAIL: %s", strerror(errno));
+	pthread_mutexattr_t attr;
+	pthread_mutexattr_init(&attr);
+	pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
+	if (pthread_mutex_init(&_hrt_lock, &attr) != 0) {
+		PX4_ERR("hrt mutex init failed");
 	}
+	pthread_mutexattr_destroy(&attr);
+
 
 	memset(&_hrt_work, 0, sizeof(_hrt_work));
 }
@@ -439,14 +443,11 @@ hrt_call_invoke()
 		call->deadline = 0;
 
 		/* invoke the callout (if there is one) */
-		if (call->callout) {
-			// Unlock so we don't deadlock in callback
-			hrt_unlock();
-
-			//PX4_INFO("call %p: %p(%p)", call, call->callout, call->arg);
-			call->callout(call->arg);
-
-			hrt_lock();
+		hrt_callout callout = call->callout;
+		void *arg = call->arg;
+		if (callout) {
+			// Keep the queue protected across callbacks to prevent orphaned periodic entries.
+			callout(arg);
 		}
 
 		/* if the callout has a non-zero period, it has to be re-entered */
