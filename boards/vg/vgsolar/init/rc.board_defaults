@@ -1,0 +1,11 @@
+#!/bin/sh
+# Rover software starts; actuator hardware drivers are not built into B0.
+param set-default SYS_AUTOSTART 50000
+param set-default SYS_USB_AUTO 2
+# Keep logging while disarmed for the bench sensor check.
+param set-default SDLOG_MODE 1
+# Use the explicit project defaults, not the older hwdef 11.0/29.14 values.
+# These remain reference calibration until confirmed against the actual power module.
+param set-default BAT1_V_DIV 20.65
+param set-default BAT1_A_PER_V 85
+param set-default BAT1_N_CELLS 6

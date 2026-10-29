@@ -1,0 +1,250 @@
+{
+  "status": "B1 bench port: user verified PX4/Rover boot, sensor data, EKF attitude, SD logging, and nose-up pitch with driver rotation 2 plus saved board rotation 6; full vehicle port incomplete",
+  "source": {
+    "distribution": "Ubuntu-22.04",
+    "repository": "/home/yuyuyyu/rover",
+    "commit": "5505db87886beb85383020d9d1376982babc988c",
+    "definition": "libraries/AP_HAL_ChibiOS/hwdef/VGSolar/hwdef.dat",
+    "hwdef_sha256": "50222ee57c7e2d3b5e62d15a1351a0952dd5a8691c52de09f0635c624cc42ddd",
+    "bootloader_sha256": "a5f7ef1da70c1973a95085067b568658926001c8e2b40d727a288164cfe1894b",
+    "defaults_sha256": "3243116302bc2ce15e05a4f32751a903dfcfc19f4a76b431f6322042611c3e59"
+  },
+  "mcu": "STM32H743VI",
+  "oscillator_hz": 16000000,
+  "flash_kib": 2048,
+  "bootloader_reference": {
+    "apj_board_id": 0,
+    "application_offset_kib": 128,
+    "application_address": "0x08020000",
+    "px4_compatibility": "Custom PX4 bootloader and application ID 0; user successfully programmed combined HEX through ROM DFU and booted PX4 B0"
+  },
+  "imu": {
+    "model": "ICM42688P",
+    "spi": 1,
+    "sck": "PA5",
+    "miso": "PA6",
+    "mosi": "PA7",
+    "cs": "PE12",
+    "drdy": "PB2",
+    "ap_rotation_name": "ROTATION_PITCH_180_YAW_270",
+    "rotation_status": "PX4 driver rotation 2 accounts for its internal Y/Z flip. User verified upright accel Z=-9.78774 and positive pitch +30.2 degrees when USB side is lifted with SENS_BOARD_ROT=6. Side-roll, compass alignment and recalibration pending.",
+    "px4_rotation": 2,
+    "board_reference": {
+      "top": "STM32 component side",
+      "forward": "USB connector side",
+      "confirmation_source": "user 2026-10-29",
+      "saved_SENS_BOARD_ROT": 6,
+      "SENS_BOARD_ROT_in_firmware_defaults": false
+    }
+  },
+  "fram": {
+    "model": "FM25V02A",
+    "spi": 2,
+    "sck": "PD3",
+    "miso": "PC2",
+    "mosi": "PC3",
+    "cs": "PD4",
+    "bytes": 32768
+  },
+  "i2c": {
+    "4": {
+      "scl": "PD12",
+      "sda": "PD13",
+      "role": "internal; BMP388 and QMC5883L/P candidates"
+    },
+    "1": {
+      "scl": "PB8",
+      "sda": "PB9",
+      "role": "external"
+    }
+  },
+  "sensors": {
+    "barometer": {
+      "model": "BMP388",
+      "bus": 4,
+      "candidate_addresses": [
+        "0x77",
+        "0x76"
+      ]
+    },
+    "magnetometers": [
+      {
+        "model": "QMC5883L",
+        "bus": 4,
+        "address": "0x0d"
+      },
+      {
+        "model": "QMC5883P",
+        "bus": 4,
+        "address": "0x2c"
+      }
+    ]
+  },
+  "serial": {
+    "UART7": {
+      "tx": "PE8",
+      "rx": "PE7",
+      "ap_serial": 1,
+      "role": "RC receiver"
+    },
+    "UART5": {
+      "tx": "PC12",
+      "rx": "PD2",
+      "ap_serial": 2,
+      "role": "MAVLink telemetry"
+    },
+    "USART1": {
+      "tx": "PB6",
+      "rx": "PB7",
+      "ap_serial": 3,
+      "role": "spare"
+    },
+    "UART8": {
+      "tx": "PE1",
+      "rx": "PE0",
+      "ap_serial": 4,
+      "role": "left ultrasonic"
+    },
+    "USART2": {
+      "tx": "PA2",
+      "rx": "PA3",
+      "ap_serial": 5,
+      "role": "right ultrasonic"
+    },
+    "USART3": {
+      "tx": "PB10",
+      "rx": "PB11",
+      "ap_serial": 6,
+      "role": "RK3588 companion protocol"
+    },
+    "USART6": {
+      "tx": "PC6",
+      "rx": "PC7",
+      "ap_serial": 7,
+      "role": "GPS, not PX4IO"
+    },
+    "UART4": {
+      "tx": "PC10",
+      "rx": "PC11",
+      "ap_serial": 8,
+      "role": "2BLD6010 RS485 telemetry"
+    }
+  },
+  "adc": {
+    "battery_voltage": "PC4",
+    "battery_current": "PA4",
+    "suction_pressure": "PC0",
+    "reserved_current_3": "PC1",
+    "reserved_current_4": "PC5",
+    "reserved_current_5": "PB0"
+  },
+  "ap_output_roles": {
+    "PA8": "right encoder A",
+    "PE11": "right encoder B",
+    "PE13": "left drive motor, AP SERVO3 reversed",
+    "PE14": "right drive motor",
+    "PD14": "suction-cup lift servo",
+    "PD15": "rear roller brush",
+    "PA0": "left encoder A",
+    "PA1": "left encoder B",
+    "PC8": "front roller brush"
+  },
+  "gpio": {
+    "PA10": "wiper",
+    "PB12": "LED0",
+    "PB13": "LED1",
+    "PC13": "button, AP input pulldown",
+    "PE15": "light",
+    "PB5": "IR input",
+    "PE2": "MCU_K power control, AP output low",
+    "PE3": "KILL input, AP pulldown",
+    "PE5": "vacuum relief valve, active low; AP relay OFF drives high",
+    "PE6": "vacuum pump, active high; AP relay OFF drives low",
+    "PB1": "buzzer, TIM3_CH4"
+  },
+  "reference_calibration": {
+    "hwdef_voltage_scale": 11.0,
+    "hwdef_current_scale": 29.14,
+    "defaults_voltage_scale": 20.65,
+    "defaults_current_scale": 85.0,
+    "status": "Do not silently choose between these or copy them as PX4 defaults; confirm actual power module/calibration."
+  },
+  "bench_build": {
+    "target": "vg_vgsolar_default",
+    "autostart": 50000,
+    "vehicle": "Rover differential",
+    "hardware_actuator_drivers": false,
+    "usb_vid": "0x1209",
+    "usb_pid": "0x5740",
+    "usb_identity_source": "existing AP build/VGSolar/hwdef.h; local bench use",
+    "application_origin": "0x08020000",
+    "linker_limit": "0x081e0000",
+    "bootloader_changed": false,
+    "imu_spi_hz": 8000000,
+    "imu_rotation_px4": 2,
+    "serial_ttyS": {
+      "USART1": 0,
+      "USART2": 1,
+      "USART3": 2,
+      "UART4": 3,
+      "UART5": 4,
+      "USART6": 5,
+      "UART7": 6,
+      "UART8": 7
+    }
+  },
+  "first_flash": {
+    "target": "vg_vgsolar_bootloader",
+    "chip": "STM32H743VI",
+    "bootloader_address": "0x08000000",
+    "application_address": "0x08020000",
+    "board_id": 0,
+    "usb_only": true,
+    "combined_hex": "build/vgsolar_first_flash/VGSolar_Rover_B0_首次烧写.hex",
+    "status": "both builds and HEX roundtrip checked; hardware untested"
+  },
+  "physical_validation": {
+    "date": "2026-10-29",
+    "evidence": "User supplied NSH outputs; no host tool directly read the firmware console",
+    "hardware": "VG_VGSOLAR STM32H7 revision V",
+    "px4_version": "1.17.0",
+    "rover_differential": "running with SYS_AUTOSTART 50000",
+    "sensors": "gyro, accel, magnetometer and barometer validators OK; EKF attitude valid, IMU missed messages 0",
+    "fram": "32 KiB parameter partition enumerated; full power-cycle persistence pending",
+    "sd_log": "ULog writing, 2.03 MiB reported, zero reported dropouts",
+    "orientation_issue": "B0 reported roll -178.2 degrees and accel Z +10.39567 m/s2 with STM32 side up; B1 changes only IMU -R from 27 to 2",
+    "not_validated": [
+      "B1 side-roll direction",
+      "IMU recalibration",
+      "magnetometer alignment and stable heading",
+      "GPS/position",
+      "parameter persistence over full power cycle",
+      "motor outputs",
+      "encoders",
+      "cleaning business logic"
+    ],
+    "b1_orientation": {
+      "driver_rotation": 2,
+      "saved_SENS_BOARD_ROT": 6,
+      "SENS_BOARD_ROT_in_firmware_defaults": false,
+      "upright_sensor_accel_m_s2": [
+        -0.10199,
+        0.11564,
+        -9.78774
+      ],
+      "upright_attitude_before_board_rotation_deg": {
+        "roll": -0.3,
+        "pitch": -0.8
+      },
+      "nose_up_after_board_rotation_deg": {
+        "roll": -1.1,
+        "pitch": 30.2
+      },
+      "flat_after_board_rotation_deg": {
+        "roll": -4.6,
+        "pitch": 1.4
+      },
+      "yaw_observation": "Yaw changed 2.9 -> 144.9 degrees during tilt; quat_reset_counter 0 -> 1. Heading not validated."
+    }
+  }
+}

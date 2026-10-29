@@ -1,0 +1,15 @@
+#!/bin/sh
+# Actual VGSolar hardware from AP hwdef; no V6C revision detection.
+board_adc start
+# PX4 flips native ICM Y/Z before applying -R.
+# AP uses raw axes: PX4 YAW_90(2) * ROLL_180(8) = AP PITCH_180_YAW_270(27).
+# Board reference: STM32 side up, USB side forward; confirm X/Y by physical tilt.
+icm42688p -s -b 1 -f 8000 -R 2 start
+if ! bmp388 -I -b 4 -a 0x76 start
+then
+    bmp388 -I -b 4 -a 0x77 start
+fi
+if ! qmc5883l -I -b 4 -a 0x0d -R 0 start
+then
+    qmc5883p -I -b 4 -a 0x2c -R 0 start
+fi

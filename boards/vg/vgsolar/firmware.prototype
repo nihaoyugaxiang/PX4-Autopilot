@@ -1,0 +1,13 @@
+{
+    "board_id": 0,
+    "magic": "PX4FWv1",
+    "description": "VGSolar FMU V3.1 PX4 Rover bench validation; no actuator drivers",
+    "image": "",
+    "build_time": 0,
+    "summary": "VGSolar Rover Bench",
+    "version": "0.1",
+    "image_size": 0,
+    "image_maxsize": 1835008,
+    "git_identity": "",
+    "board_revision": 0
+}
