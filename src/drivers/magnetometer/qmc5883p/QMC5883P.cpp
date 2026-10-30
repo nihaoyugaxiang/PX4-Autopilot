@@ -81,6 +81,9 @@ void QMC5883P::print_status()
 	perf_print_counter(_reset_perf);
 	perf_print_counter(_bad_register_perf);
 	perf_print_counter(_bad_transfer_perf);
+	PX4_INFO("normal 50 Hz, range +/-8 G, 3750 LSB/G");
+	PX4_INFO("CNTL1=0x%02x CNTL2=0x%02x", (unsigned)RegisterRead(Register::CNTL1),
+		 (unsigned)RegisterRead(Register::CNTL2));
 }
 
 int QMC5883P::probe()
@@ -244,10 +247,15 @@ void QMC5883P::RunImpl()
 
 bool QMC5883P::Configure()
 {
+	// Apply the vendor setup after every reset, checking the transfer
+	// result before enabling measurements.
+	if (!RegisterWrite(Register::XYZ_SIGN, XYZ_SIGN_CONFIG)) {
+		return false;
+	}
+
 	// first set and clear all configured register bits
 	for (const auto &reg_cfg : _register_cfg) {
 		RegisterSetAndClearBits(reg_cfg.reg, reg_cfg.set_bits, reg_cfg.clear_bits);
-		ScheduleDelayed(10_ms);
 	}
 
 	// now check that all are configured
@@ -259,7 +267,7 @@ bool QMC5883P::Configure()
 		}
 	}
 
-	_px4_mag.set_scale(1.f / 12000.f); // 12000 LSB/Gauss (Field Range = ±2G)
+	_px4_mag.set_scale(1.f / 3750.f); // QMC5883P sensitivity at +/-8 G
 
 	return success;
 }
@@ -291,10 +299,10 @@ uint8_t QMC5883P::RegisterRead(Register reg)
 	return buffer;
 }
 
-void QMC5883P::RegisterWrite(Register reg, uint8_t value)
+bool QMC5883P::RegisterWrite(Register reg, uint8_t value)
 {
 	uint8_t buffer[2] { (uint8_t)reg, value };
-	transfer(buffer, sizeof(buffer), nullptr, 0);
+	return transfer(buffer, sizeof(buffer), nullptr, 0) == PX4_OK;
 }
 
 void QMC5883P::RegisterSetAndClearBits(Register reg, uint8_t setbits, uint8_t clearbits)

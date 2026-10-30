@@ -81,7 +81,7 @@ private:
 	bool RegisterCheck(const register_config_t &reg_cfg);
 
 	uint8_t RegisterRead(Register reg);
-	void RegisterWrite(Register reg, uint8_t value);
+	bool RegisterWrite(Register reg, uint8_t value);
 	void RegisterSetAndClearBits(Register reg, uint8_t setbits, uint8_t clearbits);
 
 	PX4Magnetometer _px4_mag;
@@ -107,7 +107,11 @@ private:
 	static constexpr uint8_t size_register_cfg{2};
 	register_config_t _register_cfg[size_register_cfg] {
 		// Register                   | Set bits, Clear bits
-		{ Register::CNTL1,            CNTL1_BIT::MODE_CONTINUOUS | CNTL1_BIT::OSR1_8 | CNTL1_BIT::ODR_50HZ,  CNTL1_BIT::OSR2_8},
-		{ Register::CNTL2,            CNTL2_BIT::RNG_2G, CNTL2_BIT::SOFT_RST | CNTL2_BIT::SELF_TEST},
+		// Configure range and automatic set/reset before enabling measurements.
+		{ Register::CNTL2, CNTL2_BIT::RNG_8G,
+		  CNTL2_BIT::SOFT_RST | CNTL2_BIT::SELF_TEST | Bit5 | Bit4 | Bit2 | Bit1 | Bit0 },
+		// Normal mode honors ODR=50 Hz; both oversampling filters use 8 samples.
+		{ Register::CNTL1, CNTL1_BIT::MODE_NORMAL | CNTL1_BIT::OSR1_8 | CNTL1_BIT::OSR2_8 | CNTL1_BIT::ODR_50HZ,
+		  Bit5 | Bit4 | Bit3 | Bit1 },
 	};
 };

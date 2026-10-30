@@ -62,7 +62,8 @@ static constexpr uint8_t I2C_ADDRESS_DEFAULT = 0b0101100; // default I2C address
 
 static constexpr uint8_t Chip_ID = 0x80;
 
-//static constexpr uint8_t XYZ_SIGN_CONFIG = 0x29; // XYZ symbol configuration value
+// QST QMC5883P datasheet section 7: write 0x06 to 0x29 before measuring.
+static constexpr uint8_t XYZ_SIGN_CONFIG = 0x06;
 enum class Register : uint8_t {
 //  Register          addr
 	X_LSB           = 0x01, // Data Output X LSB Register XOUT[7:0]
@@ -79,6 +80,7 @@ enum class Register : uint8_t {
 	CNTL2           = 0x0B, // Control Register 2
 
 	CHIP_ID         = 0x00,
+	XYZ_SIGN        = 0x29,
 };
 
 // STATUS
@@ -90,25 +92,27 @@ enum STATUS_BIT : uint8_t {
 // CNTL1
 enum CNTL1_BIT : uint8_t {
 	// OSR2[7:6]
-	OSR2_8          =  Bit7 | Bit6, // 00
+	OSR2_8          =  Bit7 | Bit6, // 11
 	// OSR1[5:4]
-	OSR1_8          =  Bit5 | Bit4, // 11
+	OSR1_8          =  0,           // 00
 	// ODR[3:2]
 	ODR_50HZ        =  Bit2,        // 01
 	// MODE[1:0]
-	MODE_CONTINUOUS = Bit1 | Bit0,  // 11
+	MODE_NORMAL     = Bit0,         // 01: ODR controls the sampling rate
+	MODE_CONTINUOUS = Bit1 | Bit0,  // 11: maximum output rate, not ODR-limited
 };
 
 // CNTL2
 enum CNTL2_BIT : uint8_t {
 	// RNG[3:2]
-	RNG_2G          = Bit3 | Bit2,  // 11
+	RNG_2G          = Bit3 | Bit2,  // 11: 15000 LSB/Gauss
+	RNG_8G          = Bit3,         // 10: 3750 LSB/Gauss
 
 	// SELF_TEST[6]
 	SELF_TEST       = Bit6, //1: self_test enable, auto clear after the data is updated
 
 	// SOFT_RST[7]
-	SOFT_RST        = 0, //1: Soft reset, restore default value of all registers, 0: no reset
+	SOFT_RST        = Bit7, // 1: restore register defaults, automatically cleared
 };
 
 } // namespace QMC5883P
