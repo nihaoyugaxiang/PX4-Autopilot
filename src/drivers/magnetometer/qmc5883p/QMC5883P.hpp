@@ -80,9 +80,9 @@ private:
 
 	bool RegisterCheck(const register_config_t &reg_cfg);
 
-	uint8_t RegisterRead(Register reg);
+	bool RegisterRead(Register reg, uint8_t &value);
 	bool RegisterWrite(Register reg, uint8_t value);
-	void RegisterSetAndClearBits(Register reg, uint8_t setbits, uint8_t clearbits);
+	bool RegisterSetAndClearBits(Register reg, uint8_t setbits, uint8_t clearbits);
 
 	PX4Magnetometer _px4_mag;
 

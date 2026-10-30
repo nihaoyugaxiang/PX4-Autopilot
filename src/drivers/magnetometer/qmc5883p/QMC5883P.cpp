@@ -81,9 +81,17 @@ void QMC5883P::print_status()
 	perf_print_counter(_reset_perf);
 	perf_print_counter(_bad_register_perf);
 	perf_print_counter(_bad_transfer_perf);
-	PX4_INFO("normal 50 Hz, range +/-8 G, 3750 LSB/G");
-	PX4_INFO("CNTL1=0x%02x CNTL2=0x%02x", (unsigned)RegisterRead(Register::CNTL1),
-		 (unsigned)RegisterRead(Register::CNTL2));
+	const char *const state_names[] {"RESET", "WAIT_FOR_RESET", "CONFIGURE", "READ"};
+	PX4_INFO("state: %s", state_names[static_cast<unsigned>(_state)]);
+	PX4_INFO("target: normal 50 Hz, range +/-8 G, 3750 LSB/G");
+	uint8_t cntl1{}, cntl2{};
+
+	if (RegisterRead(Register::CNTL1, cntl1) && RegisterRead(Register::CNTL2, cntl2)) {
+		PX4_INFO("CNTL1=0x%02x CNTL2=0x%02x", (unsigned)cntl1, (unsigned)cntl2);
+
+	} else {
+		PX4_INFO("control register read failed");
+	}
 }
 
 int QMC5883P::probe()
@@ -96,9 +104,9 @@ int QMC5883P::probe()
 		uint8_t buffer{};
 
 		if (transfer(&cmd, 1, &buffer, 1) == PX4_OK) {
-			const uint8_t CHIP_ID = RegisterRead(Register::CHIP_ID);
+			uint8_t chip_id{};
 
-			if (CHIP_ID == Chip_ID) {
+			if (RegisterRead(Register::CHIP_ID, chip_id) && chip_id == Chip_ID) {
 				return PX4_OK;
 			}
 		}
@@ -114,7 +122,11 @@ void QMC5883P::RunImpl()
 	switch (_state) {
 	case STATE::RESET: {
 			// CNTL2: Software Reset
-			RegisterWrite(Register::CNTL2, CNTL2_BIT::SOFT_RST);
+			if (!RegisterWrite(Register::CNTL2, CNTL2_BIT::SOFT_RST)) {
+				ScheduleDelayed(100_ms);
+				break;
+			}
+
 			_reset_timestamp = now;
 			_failure_count = 0;
 			_state = STATE::WAIT_FOR_RESET;
@@ -124,25 +136,24 @@ void QMC5883P::RunImpl()
 		}
 
 	case STATE::WAIT_FOR_RESET: {
-			// SOFT_RST: This bit is automatically reset to zero after POR routine
-			if ((RegisterRead(Register::CHIP_ID) == Chip_ID)
-			    && ((RegisterRead(Register::CNTL2) & CNTL2_BIT::SOFT_RST) == 0)) {
+			// SOFT_RST was observed staying asserted on the VGSolar device.
+			// Explicitly deassert it instead of assuming it self-clears.
+			// RESET scheduled this state after a 100 ms settling interval.
+			uint8_t chip_id{}, cntl2{};
 
-				// if reset succeeded then configure
+			if (RegisterWrite(Register::CNTL2, 0)
+			    && RegisterRead(Register::CHIP_ID, chip_id) && chip_id == Chip_ID
+			    && RegisterRead(Register::CNTL2, cntl2) && (cntl2 & CNTL2_BIT::SOFT_RST) == 0) {
 				_state = STATE::CONFIGURE;
 				ScheduleDelayed(10_ms);
 
 			} else {
-				// RESET not complete
 				if (hrt_elapsed_time(&_reset_timestamp) > 1_s) {
-					PX4_DEBUG("Reset failed, retrying");
+					PX4_DEBUG("Reset release failed, retrying");
 					_state = STATE::RESET;
-					ScheduleDelayed(10_ms);
-
-				} else {
-					PX4_DEBUG("Reset not complete, check again in 10 ms");
-					ScheduleDelayed(10_ms);
 				}
+
+				ScheduleDelayed(10_ms);
 			}
 
 			break;
@@ -255,7 +266,9 @@ bool QMC5883P::Configure()
 
 	// first set and clear all configured register bits
 	for (const auto &reg_cfg : _register_cfg) {
-		RegisterSetAndClearBits(reg_cfg.reg, reg_cfg.set_bits, reg_cfg.clear_bits);
+		if (!RegisterSetAndClearBits(reg_cfg.reg, reg_cfg.set_bits, reg_cfg.clear_bits)) {
+			return false;
+		}
 	}
 
 	// now check that all are configured
@@ -276,7 +289,11 @@ bool QMC5883P::RegisterCheck(const register_config_t &reg_cfg)
 {
 	bool success = true;
 
-	const uint8_t reg_value = RegisterRead(reg_cfg.reg);
+	uint8_t reg_value{};
+
+	if (!RegisterRead(reg_cfg.reg, reg_value)) {
+		return false;
+	}
 
 	if (reg_cfg.set_bits && ((reg_value & reg_cfg.set_bits) != reg_cfg.set_bits)) {
 		PX4_INFO("0x%02hhX: 0x%02hhX (0x%02hhX not set)", (uint8_t)reg_cfg.reg, reg_value, reg_cfg.set_bits);
@@ -291,26 +308,40 @@ bool QMC5883P::RegisterCheck(const register_config_t &reg_cfg)
 	return success;
 }
 
-uint8_t QMC5883P::RegisterRead(Register reg)
+bool QMC5883P::RegisterRead(Register reg, uint8_t &value)
 {
 	const uint8_t cmd = static_cast<uint8_t>(reg);
 	uint8_t buffer{};
-	transfer(&cmd, 1, &buffer, 1);
-	return buffer;
+
+	if (transfer(&cmd, 1, &buffer, 1) != PX4_OK) {
+		perf_count(_bad_transfer_perf);
+		return false;
+	}
+
+	value = buffer;
+	return true;
 }
 
 bool QMC5883P::RegisterWrite(Register reg, uint8_t value)
 {
 	uint8_t buffer[2] { (uint8_t)reg, value };
-	return transfer(buffer, sizeof(buffer), nullptr, 0) == PX4_OK;
+
+	if (transfer(buffer, sizeof(buffer), nullptr, 0) != PX4_OK) {
+		perf_count(_bad_transfer_perf);
+		return false;
+	}
+
+	return true;
 }
 
-void QMC5883P::RegisterSetAndClearBits(Register reg, uint8_t setbits, uint8_t clearbits)
+bool QMC5883P::RegisterSetAndClearBits(Register reg, uint8_t setbits, uint8_t clearbits)
 {
-	const uint8_t orig_val = RegisterRead(reg);
-	uint8_t val = (orig_val & ~clearbits) | setbits;
+	uint8_t orig_val{};
 
-	if (orig_val != val) {
-		RegisterWrite(reg, val);
+	if (!RegisterRead(reg, orig_val)) {
+		return false;
 	}
+
+	const uint8_t val = (orig_val & ~clearbits) | setbits;
+	return orig_val == val || RegisterWrite(reg, val);
 }
