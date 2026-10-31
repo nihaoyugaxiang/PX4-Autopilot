@@ -1,5 +1,8 @@
 // SPDX-License-Identifier: BSD-3-Clause
 
+// 本板两路超声波开机启动开关：0关闭，1启用；保存后重启生效。
+// 默认关闭，便于先用NSH手动验证左右串口；不控制执行器，不改校准。
+// 下方结构化参数说明供PX4参数工具生成元数据，保持其原有标签与默认值。
 /**
  * Enable VGSolar left and right DYP-A02 inputs at boot
  *

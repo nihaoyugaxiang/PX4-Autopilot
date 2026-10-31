@@ -1,3 +1,4 @@
+# 本项只决定是否将驱动编入固件；是否开机运行由VGS_RNG_EN另行控制。
 menuconfig DRIVERS_DISTANCE_SENSOR_DYP_A02
 	bool "dyp_a02"
 	default n

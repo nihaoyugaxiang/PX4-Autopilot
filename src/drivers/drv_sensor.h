@@ -261,6 +261,7 @@
 #define DRV_INS_DEVTYPE_SBG		0xEC
 
 // Local VGSolar extension; keep unique within this source tree.
+// VGSolar本地DYP-A02设备类型；与串口总线号组合生成左右各自的DeviceId。
 #define DRV_DIST_DEVTYPE_DYP_A02		0xED
 
 #define DRV_DEVTYPE_UNUSED		0xff

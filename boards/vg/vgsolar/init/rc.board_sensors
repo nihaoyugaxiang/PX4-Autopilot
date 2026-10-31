@@ -10,7 +10,8 @@ then
     bmp388 -I -b 4 -a 0x77 start
 fi
 
-# Input-only migration step 1; opt-in until both UARTs are bench-verified.
+# 迁移第1步仅采集超声波输入，默认不开机启动，先完成两路台架验证。
+# VGS_RNG_EN=1时启用：左UART8/ttyS7，右USART2/ttyS1；不启用任何执行器。
 if param compare VGS_RNG_EN 1
 then
     dyp_a02 start -l /dev/ttyS7 -r /dev/ttyS1
