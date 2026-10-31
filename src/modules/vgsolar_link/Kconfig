@@ -1,0 +1,5 @@
+menuconfig MODULES_VGSOLAR_LINK
+	bool "vgsolar_link"
+	default n
+	---help---
+		Read-only NCU UART link and APM-compatible status feedback for VGSolar.
