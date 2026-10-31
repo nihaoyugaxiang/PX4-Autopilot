@@ -10,6 +10,7 @@
 #include <uORB/Publication.hpp>
 #include <uORB/Subscription.hpp>
 #include <uORB/topics/adc_report.h>
+#include <uORB/topics/debug_vect.h>
 #include <uORB/topics/parameter_update.h>
 #include <uORB/topics/vgsolar_inputs.h>
 #include <string.h>
@@ -110,6 +111,7 @@ private:
 			stopped.adc_raw = -1;
 			stopped.pressure_adc_channel = VGSOLAR_PRESSURE_ADC_CHANNEL;
 			_pub.publish(stopped);
+			publish_debug_vect(stopped.timestamp, NAN, NAN, false);
 			ScheduleClear();
 			exit_and_cleanup();
 			return;
@@ -165,11 +167,26 @@ private:
 		report.pressure_adc_channel = VGSOLAR_PRESSURE_ADC_CHANNEL;
 		report.enabled = true;
 		_pub.publish(report);
+		publish_debug_vect(now, report.pressure_voltage_v, report.pressure_kpa, report.pressure_valid);
+	}
+
+	void publish_debug_vect(uint64_t timestamp, float voltage, float pressure_kpa, bool valid)
+	{
+		// QGC MAVLink Inspector显示：x=PC0电压(V)，y=滤波压力(kPa)，z=压力有效标志。
+		debug_vect_s debug{};
+		debug.timestamp = timestamp;
+		strncpy(debug.name, "VGS_PRESS", sizeof(debug.name));
+		debug.name[sizeof(debug.name) - 1] = '\0';
+		debug.x = voltage;
+		debug.y = pressure_kpa;
+		debug.z = valid ? 1.f : 0.f;
+		_debug_pub.publish(debug);
 	}
 
 	uORB::Subscription _adc_sub{ORB_ID(adc_report)};
 	uORB::Subscription _parameter_sub{ORB_ID(parameter_update)};
 	uORB::Publication<vgsolar_inputs_s> _pub{ORB_ID(vgsolar_inputs)};
+	uORB::Publication<debug_vect_s> _debug_pub{ORB_ID(debug_vect)};
 	vgsolar_inputs::Pressure _pressure;
 	vgsolar_inputs::Infrared _ir;
 	vgsolar_inputs::Calibration _last_cal;

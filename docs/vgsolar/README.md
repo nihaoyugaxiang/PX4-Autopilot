@@ -18,7 +18,7 @@ APM参考：Ubuntu-22.04 `/home/yuyuyyu/rover`，commit `5505db87886beb85383020d
 |---|---|---|
 | 01 | 左右DYP-A02 UART采集、有效/失效发布 | 已实现；软件测试及板型构建记录见交付文件，实板待测 |
 | 02 | 用户要求提前配置五路PWM，先测电子波形 | 用户反馈基本正常；已取得第1路约50Hz/1.5ms视频；完整量测/启动/故障回归待补 |
-| 03 | 负压ADC、红外输入及诊断日志 | 已实现只读模块，实板待测；型号/原接线经用户确认；见STEP03_PRESSURE_IR.md |
+| 03 | 负压ADC、红外输入、诊断日志及QGC实时检查遥测 | 已实现只读模块；QGC USB链路可通过MAVLink Inspector查看PC0电压/滤波压力/有效标志，地面端实收及传感器实测待验；见STEP03_PRESSURE_IR.md |
 | 04 | 边缘检测判断、超时/越界消抖与安全请求 | 待实现；保留APM“任一路无效或>15cm”的语义，后续再验证输出联锁 |
 | 05 | 左右编码器读数、方向/倍率验证 | 待实现；发布轮速不代表EKF或速度闭环已接通 |
 | 06 | NCU只读通信和协议测试 | 待实现；先处理USART3控制台占用 |
@@ -28,4 +28,6 @@ APM参考：Ubuntu-22.04 `/home/yuyuyyu/rover`，commit `5505db87886beb85383020d
 
 不自动推送、不直接刷写实板；现场日志和参数以每轮实际采集为准。保持现有`.vscode/settings.json`修改，不纳入功能提交。
 
-第03步说明：[负压与红外实现过程和实板步骤](STEP03_PRESSURE_IR.md)。升级前先执行PWM清理脚本，避免沿用已保存的持续上锁输出；VGS_IN_EN默认0，先手动收数。
+第03步说明：[负压与红外实现过程和实板步骤](STEP03_PRESSURE_IR.md)。压力遥测经现有`DEBUG_VECT` MAVLink流发送，QGC Analyze Tools中的MAVLink Inspector可实时查看/绘图；这不是Fly View标准压力仪表。升级前先执行PWM清理脚本，避免沿用已保存的持续上锁输出；VGS_IN_EN默认0，先手动收数。
+
+QGC遥测补充说明：[PC0电压与吸盘压力实时显示](STEP03_QGC_PRESSURE_TELEMETRY.md)。
