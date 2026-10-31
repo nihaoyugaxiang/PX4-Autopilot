@@ -45,6 +45,7 @@ set(msg_files
 	ActuatorTest.msg
 	AdcReport.msg
 	VgsolarInputs.msg
+	VgsolarEncoderStatus.msg
 	VgsolarSafetyStatus.msg
 	Airspeed.msg
 	AirspeedWind.msg

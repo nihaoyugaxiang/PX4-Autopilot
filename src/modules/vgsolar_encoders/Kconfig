@@ -1,0 +1,5 @@
+menuconfig MODULES_VGSOLAR_ENCODERS
+	bool "vgsolar_encoders"
+	default n
+	---help---
+		VGSolar left/right wheel encoder raw quadrature count diagnostics.

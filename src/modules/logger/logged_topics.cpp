@@ -150,6 +150,8 @@ void LoggedTopics::add_default_topics()
 	add_topic("vehicle_status");
 	// VGSolar输入诊断包含原始ADC、电压、有效性和红外电平；缺席时不订阅。
 	add_optional_topic("vgsolar_inputs", 20);
+	// 左右编码器在用户手动启动模块后记录原始计数和相位跳变诊断。
+	add_topic("vgsolar_encoder_status", 20);
 	// 模块可能在logger启动后手动启动；常规订阅可在稍后出现首次发布时开始记录。
 	add_topic("vgsolar_safety_status", 20);
 	add_optional_topic("vtol_vehicle_status", 200);
