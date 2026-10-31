@@ -51,7 +51,9 @@
 #define ADC_BATTERY_CURRENT_CHANNEL ADC1_CH(18)  /* PA4 */
 #define ADC_CHANNELS ((1 << 4) | (1 << 18) | (1 << 10) | (1 << 11))
 
-/* Bench image has no hardware actuator driver. Never drive encoder pins. */
+/* 仅将五个已核对的引脚交给原生PWM驱动；四个编码器引脚继续保持输入。
+ * 开机输出功能默认禁用，手动测试也只允许在机构动力断开的台架上进行。
+ */
 #define DIRECT_PWM_OUTPUT_CHANNELS 5
 #define BOARD_NUM_IO_TIMERS 3
 #define HRT_TIMER 8

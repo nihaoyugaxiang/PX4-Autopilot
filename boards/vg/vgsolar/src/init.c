@@ -106,7 +106,7 @@ __EXPORT int board_app_initialize(uintptr_t arg)
     }
 #endif
     px4_platform_configure();
-    syslog(LOG_INFO, "[vgsolar] PX4 Rover bench image: actuator drivers disabled\n");
+    syslog(LOG_INFO, "[vgsolar] PX4 bench: PWM functions disabled by default; disconnect actuator power for waveform tests\n");
 #endif /* !BOOTLOADER */
     return OK;
 }
