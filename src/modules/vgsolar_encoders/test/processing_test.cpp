@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: BSD-3-Clause
 // 仅测试AB相纯解码逻辑，不访问GPIO或连接实物。
 #include "../QuadratureDecoder.hpp"
+#include "../WheelKinematics.hpp"
 #include <assert.h>
+#include <cmath>
 #include <stdio.h>
 
 using vgsolar_encoders::QuadratureDecoder;
@@ -63,5 +65,20 @@ int main()
 	decoder.reset(0b10);
 	assert(decoder.snapshot().count == 0 && decoder.snapshot().transitions == 0);
 
-	puts("PASS: all 16 phase transitions, forward/reverse cycles, duplicate/reversal/invalid recovery, independent wheels, 100k signed edges, restart");
+	// Forty transitions per driven-wheel revolution maps four transitions in 100 ms to 1 rev/s.
+	const auto wheel = vgsolar_encoders::calculate_wheel_kinematics(40, 4, 40, 100000, false);
+	assert(wheel.configured);
+	assert(std::fabs(wheel.angle_rad - static_cast<float>(vgsolar_encoders::TwoPi)) < 1e-5f);
+	assert(std::fabs(wheel.speed_rad_s - static_cast<float>(vgsolar_encoders::TwoPi)) < 1e-5f);
+
+	const auto reverse = vgsolar_encoders::calculate_wheel_kinematics(40, 4, 40, 100000, true);
+	assert(std::fabs(reverse.angle_rad + static_cast<float>(vgsolar_encoders::TwoPi)) < 1e-5f);
+	assert(std::fabs(reverse.speed_rad_s + static_cast<float>(vgsolar_encoders::TwoPi)) < 1e-5f);
+
+	const auto uncalibrated = vgsolar_encoders::calculate_wheel_kinematics(40, 4, 0, 100000, false);
+	assert(!uncalibrated.configured && std::isnan(uncalibrated.angle_rad) && std::isnan(uncalibrated.speed_rad_s));
+	const auto first_sample = vgsolar_encoders::calculate_wheel_kinematics(40, 4, 40, 0, false);
+	assert(first_sample.configured && std::isfinite(first_sample.angle_rad) && std::isnan(first_sample.speed_rad_s));
+
+	puts("PASS: quadrature transitions/recovery, 100k signed edges, wheel CPR/direction/speed conversion, and uncalibrated NaN handling");
 }

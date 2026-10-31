@@ -49,6 +49,7 @@
 #define PX4_ADC_GPIO GPIO_ADC12_INP4, GPIO_ADC12_INP18, GPIO_ADC123_INP10, GPIO_ADC123_INP11
 #define ADC_BATTERY_VOLTAGE_CHANNEL ADC1_CH(4)   /* PC4 */
 #define ADC_BATTERY_CURRENT_CHANNEL ADC1_CH(18)  /* PA4 */
+/* board_adc采样这些ADC通道；通用battery_status按电池比例参数发布标准电池状态。 */
 #define VGSOLAR_PRESSURE_ADC_CHANNEL ADC1_CH(10) /* PC0，复用board_adc发布的数据。 */
 #define ADC_CHANNELS ((1 << 4) | (1 << 18) | (1 << 10) | (1 << 11))
 

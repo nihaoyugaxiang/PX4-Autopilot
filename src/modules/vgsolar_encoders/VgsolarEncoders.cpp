@@ -1,25 +1,30 @@
 // SPDX-License-Identifier: BSD-3-Clause
-// 仅采集左右轮AB相原始计数；不控制执行器，也不假定编码器每圈计数。
+// 采集左右轮AB相原始计数；标准轮速换算只在每侧CPR经实测配置后启用。
 #include "QuadratureDecoder.hpp"
+#include "WheelKinematics.hpp"
 #include <board_config.h>
 #include <px4_platform/gpio.h>
 #include <px4_platform_common/module.h>
+#include <px4_platform_common/module_params.h>
 #include <px4_platform_common/px4_work_queue/ScheduledWorkItem.hpp>
 #include <uORB/Publication.hpp>
 #include <uORB/Subscription.hpp>
 #include <uORB/topics/debug_array.h>
+#include <uORB/topics/parameter_update.h>
 #include <uORB/topics/vgsolar_encoder_status.h>
+#include <uORB/topics/wheel_encoders.h>
 #include <string.h>
 
-class VgsolarEncoders : public ModuleBase<VgsolarEncoders>, public px4::ScheduledWorkItem
+class VgsolarEncoders : public ModuleBase<VgsolarEncoders>, public ModuleParams, public px4::ScheduledWorkItem
 {
 public:
-	VgsolarEncoders() : ScheduledWorkItem(MODULE_NAME, px4::wq_configurations::lp_default)
+	VgsolarEncoders() : ModuleParams(nullptr), ScheduledWorkItem(MODULE_NAME, px4::wq_configurations::lp_default)
 	{
 		_contexts[0] = {this, false};
 		_contexts[1] = {this, false};
 		_contexts[2] = {this, true};
 		_contexts[3] = {this, true};
+		apply_parameters();
 	}
 
 	~VgsolarEncoders() override { stop_capture(); }
@@ -68,7 +73,9 @@ public:
 			 data.right_invalid_transitions);
 		PX4_INFO("left=%" PRId64 " (delta=%" PRId32 ", dir=%" PRId8 ", invalid=%" PRIu32 ")",
 			 data.left_count, data.left_delta, data.left_direction, data.left_invalid_transitions);
-		PX4_INFO("raw transitions only; direction sign is phase order, not verified chassis-forward direction");
+		PX4_INFO("CPR right=%ld left=%ld; reverse right=%ld left=%ld", (long)_param_right_cpr.get(),
+			 (long)_param_left_cpr.get(), (long)_param_right_reverse.get(), (long)_param_left_reverse.get());
+		PX4_INFO("wheel_encoders is NaN for any side whose CPR is zero; counts remain phase-order diagnostics");
 		return 0;
 	}
 
@@ -179,6 +186,12 @@ private:
 			return;
 		}
 
+		parameter_update_s update{};
+
+		if (_parameter_update_sub.update(&update)) {
+			apply_parameters();
+		}
+
 		const auto report = publish_status();
 
 		if (++_debug_cycle >= 5) {
@@ -211,9 +224,33 @@ private:
 		report.left_direction = report.left_delta > 0 ? 1 : (report.left_delta < 0 ? -1 : 0);
 		report.capture_active = active;
 		_encoder_pub.publish(report);
+		publish_wheel_encoders(report);
 		_previous_right_count = report.right_count;
 		_previous_left_count = report.left_count;
 		return report;
+	}
+
+	void apply_parameters()
+	{
+		updateParams();
+	}
+
+	void publish_wheel_encoders(const vgsolar_encoder_status_s &report)
+	{
+		const uint64_t interval_us = _last_kinematics_timestamp > 0 && report.timestamp > _last_kinematics_timestamp ?
+					     report.timestamp - _last_kinematics_timestamp : 0;
+		const auto right = vgsolar_encoders::calculate_wheel_kinematics(report.right_count, report.right_delta,
+				_param_right_cpr.get(), interval_us, _param_right_reverse.get() != 0);
+		const auto left = vgsolar_encoders::calculate_wheel_kinematics(report.left_count, report.left_delta,
+				_param_left_cpr.get(), interval_us, _param_left_reverse.get() != 0);
+		wheel_encoders_s wheel{};
+		wheel.timestamp = report.timestamp;
+		wheel.wheel_angle[0] = right.angle_rad;
+		wheel.wheel_speed[0] = right.speed_rad_s;
+		wheel.wheel_angle[1] = left.angle_rad;
+		wheel.wheel_speed[1] = left.speed_rad_s;
+		_wheel_pub.publish(wheel);
+		_last_kinematics_timestamp = report.timestamp;
 	}
 
 	void publish_debug(const vgsolar_encoder_status_s &report)
@@ -232,16 +269,25 @@ private:
 
 	uORB::Publication<vgsolar_encoder_status_s> _encoder_pub{ORB_ID(vgsolar_encoder_status)};
 	uORB::Publication<debug_array_s> _debug_pub{ORB_ID(debug_array)};
+	uORB::Publication<wheel_encoders_s> _wheel_pub{ORB_ID(wheel_encoders)};
+	uORB::Subscription _parameter_update_sub{ORB_ID(parameter_update)};
 	vgsolar_encoders::QuadratureDecoder _right;
 	vgsolar_encoders::QuadratureDecoder _left;
 	PinContext _contexts[4]{};
 	uint64_t _right_last_edge{0};
 	uint64_t _left_last_edge{0};
+	uint64_t _last_kinematics_timestamp{0};
 	int64_t _previous_right_count{0};
 	int64_t _previous_left_count{0};
 	uint8_t _debug_cycle{0};
 	uint8_t _attached_mask{0};
 	bool _active{false};
+	DEFINE_PARAMETERS(
+		(ParamInt<px4::params::VGS_ENC_R_CPR>) _param_right_cpr,
+		(ParamInt<px4::params::VGS_ENC_L_CPR>) _param_left_cpr,
+		(ParamInt<px4::params::VGS_ENC_R_REV>) _param_right_reverse,
+		(ParamInt<px4::params::VGS_ENC_L_REV>) _param_left_reverse
+	)
 };
 
 extern "C" __EXPORT int vgsolar_encoders_main(int argc, char *argv[])
