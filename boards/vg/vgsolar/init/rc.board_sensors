@@ -21,6 +21,11 @@ if param compare VGS_RNG_EN 1
 then
     dyp_a02 start -l /dev/ttyS7 -r /dev/ttyS1
 fi
+# 边缘检测单独启用，默认关闭；无传感器时也会锁存请求，仅供输入台架验证。
+if param compare VGS_SAFE_EN 1
+then
+    vgsolar_safety start
+fi
 if ! qmc5883l -I -b 4 -a 0x0d -R 0 start
 then
     qmc5883p -I -b 4 -a 0x2c -R 0 start

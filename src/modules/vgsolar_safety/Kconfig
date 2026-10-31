@@ -1,0 +1,6 @@
+# 编译开关和开机启用参数VGS_SAFE_EN相互独立。
+menuconfig MODULES_VGSOLAR_SAFETY
+	bool "vgsolar_safety"
+	default n
+	---help---
+		VGSolar DYP-A02 edge monitor and latched stop request diagnostics.
