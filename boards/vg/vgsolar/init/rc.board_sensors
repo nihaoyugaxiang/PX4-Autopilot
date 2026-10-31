@@ -1,6 +1,11 @@
 #!/bin/sh
 # Actual VGSolar hardware from AP hwdef; no V6C revision detection.
 board_adc start
+# 只读负压/红外采集默认不开机运行，先手动验证传感器和原接线。
+if param compare VGS_IN_EN 1
+then
+    vgsolar_inputs start
+fi
 # PX4 flips native ICM Y/Z before applying -R.
 # AP uses raw axes: PX4 YAW_90(2) * ROLL_180(8) = AP PITCH_180_YAW_270(27).
 # Board reference: STM32 side up, USB side forward; confirm X/Y by physical tilt.

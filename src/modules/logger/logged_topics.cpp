@@ -148,6 +148,8 @@ void LoggedTopics::add_default_topics()
 	add_topic("vehicle_rates_setpoint", 20);
 	add_topic("vehicle_roi", 1000);
 	add_topic("vehicle_status");
+	// VGSolar输入诊断包含原始ADC、电压、有效性和红外电平；缺席时不订阅。
+	add_optional_topic("vgsolar_inputs", 20);
 	add_optional_topic("vtol_vehicle_status", 200);
 	add_topic("wind", 1000);
 	add_topic("fixed_wing_lateral_setpoint");

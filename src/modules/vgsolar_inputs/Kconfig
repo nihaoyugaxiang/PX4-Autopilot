@@ -1,0 +1,5 @@
+menuconfig MODULES_VGSOLAR_INPUTS
+	bool "vgsolar_inputs"
+	default n
+	---help---
+		VGSolar suction pressure ADC and lift infrared input diagnostics.
