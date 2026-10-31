@@ -9,6 +9,12 @@ if ! bmp388 -I -b 4 -a 0x76 start
 then
     bmp388 -I -b 4 -a 0x77 start
 fi
+
+# Input-only migration step 1; opt-in until both UARTs are bench-verified.
+if param compare VGS_RNG_EN 1
+then
+    dyp_a02 start -l /dev/ttyS7 -r /dev/ttyS1
+fi
 if ! qmc5883l -I -b 4 -a 0x0d -R 0 start
 then
     qmc5883p -I -b 4 -a 0x2c -R 0 start

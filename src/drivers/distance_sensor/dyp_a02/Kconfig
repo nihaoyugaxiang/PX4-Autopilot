@@ -1,0 +1,5 @@
+menuconfig DRIVERS_DISTANCE_SENSOR_DYP_A02
+	bool "dyp_a02"
+	default n
+	---help---
+		DYP-A02 automatic-output UART ultrasonic distance sensor.

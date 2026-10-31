@@ -260,6 +260,9 @@
 
 #define DRV_INS_DEVTYPE_SBG		0xEC
 
+// Local VGSolar extension; keep unique within this source tree.
+#define DRV_DIST_DEVTYPE_DYP_A02		0xED
+
 #define DRV_DEVTYPE_UNUSED		0xff
 
 #endif /* _DRV_SENSOR_H */
