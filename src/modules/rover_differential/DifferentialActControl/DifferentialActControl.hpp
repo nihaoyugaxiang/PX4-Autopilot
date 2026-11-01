@@ -116,10 +116,12 @@ private:
 
 	// Parameters
 	DEFINE_PARAMETERS(
+#if defined(CONFIG_MODULES_VGSOLAR_SAFETY)
+		(ParamInt<px4::params::VGS_SAFE_EN>) _param_vgs_safe_enable,
+#endif
 		(ParamInt<px4::params::CA_R_REV>) _param_r_rev,
 		(ParamFloat<px4::params::RO_ACCEL_LIM>) _param_ro_accel_limit,
 		(ParamFloat<px4::params::RO_DECEL_LIM>) _param_ro_decel_limit,
-		(ParamFloat<px4::params::RO_MAX_THR_SPEED>) _param_ro_max_thr_speed,
-		(ParamInt<px4::params::VGS_SAFE_EN>) _param_vgs_safe_enable
+		(ParamFloat<px4::params::RO_MAX_THR_SPEED>) _param_ro_max_thr_speed
 	)
 };

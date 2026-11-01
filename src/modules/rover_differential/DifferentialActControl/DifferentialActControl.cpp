@@ -87,7 +87,12 @@ void DifferentialActControl::updateActControl()
 		_safety_status.latched = safety.latched;
 	}
 
-	const bool output_allowed = _output_gate.allow(_param_vgs_safe_enable.get() == 1, _safety_status,
+	// Only VGSolar safety builds generate VGS_SAFE_EN; standard Rover/SITL builds do not.
+	bool safety_enabled = false;
+#if defined(CONFIG_MODULES_VGSOLAR_SAFETY)
+	safety_enabled = _param_vgs_safe_enable.get() == 1;
+#endif
+	const bool output_allowed = _output_gate.allow(safety_enabled, _safety_status,
 						 _throttle_timestamp, _steering_timestamp, _timestamp,
 						 throttle_updated, steering_updated);
 
