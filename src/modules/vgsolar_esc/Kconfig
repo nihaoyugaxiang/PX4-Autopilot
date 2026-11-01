@@ -1,0 +1,5 @@
+menuconfig MODULES_VGSOLAR_ESC
+	bool "vgsolar_esc"
+	default n
+	---help---
+		Read-only 2BLD6010 Modbus RTU telemetry on VGSolar UART4.

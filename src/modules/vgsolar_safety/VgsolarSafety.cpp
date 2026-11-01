@@ -13,6 +13,7 @@
 #include <uORB/topics/distance_sensor.h>
 #include <uORB/topics/parameter_update.h>
 #include <uORB/topics/vgsolar_safety_status.h>
+#include <uORB/topics/vgsolar_safety_request.h>
 #include <string.h>
 
 using vgsolar_safety::State;
@@ -157,7 +158,11 @@ private:
 		}
 
 		// 读完消息再取当前时间；未来/陈旧时间戳不能使通道恢复有效。
-		const auto result = _monitor.update(_left, _right, hrt_absolute_time(), _clear_requested.fetch_and(0) != 0);
+		vgsolar_safety_request_s request{};
+		const uint64_t now = hrt_absolute_time();
+		const bool ncu_clear = _clear_sub.update(&request) && request.clear && request.timestamp > 0
+				       && now >= request.timestamp && now - request.timestamp < 200000;
+		const auto result = _monitor.update(_left, _right, now, _clear_requested.fetch_and(0) != 0 || ncu_clear);
 
 		if (result.clear_attempted) {
 			if (result.clear_succeeded) {
@@ -200,6 +205,7 @@ private:
 	vgsolar_safety::Monitor _monitor;
 	vgsolar_safety::RangeSample _left{}, _right{};
 	vgsolar_safety_status_s _last_status{};
+	uORB::Subscription _clear_sub{ORB_ID(vgsolar_safety_request)};
 	px4::atomic<uint32_t> _clear_requested{0};
 	uint32_t _clear_count{0}, _rejected_clear_count{0};
 

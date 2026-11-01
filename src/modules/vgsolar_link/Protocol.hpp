@@ -14,6 +14,7 @@ constexpr uint8_t SOURCE_FCU = 0xBB;
 constexpr uint8_t CMD_STATUS = 0x01;
 constexpr uint8_t CMD_ACK = 0x02;
 constexpr uint8_t STATUS_BODY_LENGTH = 34;
+constexpr uint8_t CMD_PARAM_FEEDBACK = 0x03;
 constexpr size_t FRAME_OVERHEAD = 7;
 constexpr size_t STATUS_FRAME_LENGTH = FRAME_OVERHEAD + STATUS_BODY_LENGTH;
 constexpr uint16_t RANGE_INVALID_CM = 0xFFFF;
@@ -144,6 +145,29 @@ inline void put_i32(uint8_t *out, int32_t value)
 	out[3] = static_cast<uint8_t>(raw >> 24);
 }
 
+inline void put_u32(uint8_t *out, uint32_t value)
+{
+	out[0] = static_cast<uint8_t>(value);
+	out[1] = static_cast<uint8_t>(value >> 8);
+
+	out[2] = static_cast<uint8_t>(value >> 16);
+	out[3] = static_cast<uint8_t>(value >> 24);
+}
+
+
+inline size_t build_navigation_frame(uint8_t state, uint8_t mode, uint32_t distance_cm,
+				    int16_t heading_error_cd, uint8_t *out, size_t capacity)
+{
+	if (out == nullptr || capacity < 15) { return 0; }
+	out[0] = FRAME_HEADER_1; out[1] = FRAME_HEADER_2; out[2] = SOURCE_FCU;
+	out[3] = 4; out[4] = 8; out[5] = state; out[6] = mode;
+	put_u32(out + 7, distance_cm); put_i16(out + 11, heading_error_cd);
+	uint8_t checksum = 0;
+	for (unsigned i = 2; i < 13; ++i) { checksum = static_cast<uint8_t>(checksum + out[i]); }
+	out[13] = checksum; out[14] = FRAME_TAIL;
+	return 15;
+}
+
 inline size_t build_status_frame(const StatusFields &fields, uint8_t *out, size_t capacity)
 {
 	if (out == nullptr || capacity < STATUS_FRAME_LENGTH) { return 0; }
@@ -186,7 +210,7 @@ inline size_t build_failed_ack(uint8_t command, uint8_t *out, size_t capacity)
 	out[3] = CMD_ACK;
 	out[4] = 2;
 	out[5] = command;
-	out[6] = 2; // NCU command rejected: this PX4 stage is read-only.
+	out[6] = 2; // NCU command rejected by the current PX4 mode.
 	uint8_t checksum = 0;
 	for (size_t i = 2; i < 7; ++i) { checksum = static_cast<uint8_t>(checksum + out[i]); }
 	out[7] = checksum;
@@ -194,4 +218,41 @@ inline size_t build_failed_ack(uint8_t command, uint8_t *out, size_t capacity)
 	return 9;
 }
 
+inline size_t build_ack(uint8_t command, bool success, uint8_t *out, size_t capacity)
+{
+	if (out == nullptr || capacity < FRAME_OVERHEAD + 2) { return 0; }
+	out[0] = FRAME_HEADER_1;
+	out[1] = FRAME_HEADER_2;
+	out[2] = SOURCE_FCU;
+	out[3] = CMD_ACK;
+	out[4] = 2;
+	out[5] = command;
+	out[6] = success ? 1 : 2;
+	uint8_t checksum = 0;
+	for (size_t i = 2; i < 7; ++i) { checksum = static_cast<uint8_t>(checksum + out[i]); }
+	out[7] = checksum;
+	out[8] = FRAME_TAIL;
+	return 9;
+}
+
+inline size_t build_param_feedback(uint16_t index, uint8_t type, uint32_t value, uint8_t *out, size_t capacity)
+{
+	constexpr uint8_t body_length = 7;
+	const size_t frame_length = FRAME_OVERHEAD + body_length;
+	if (out == nullptr || capacity < frame_length) { return 0; }
+	out[0] = FRAME_HEADER_1;
+	out[1] = FRAME_HEADER_2;
+	out[2] = SOURCE_FCU;
+	out[3] = CMD_PARAM_FEEDBACK;
+	out[4] = body_length;
+	put_u16(out + 5, index);
+	out[7] = type;
+	put_u32(out + 8, value);
+	uint8_t checksum = 0;
+	for (size_t i = 2; i < frame_length - 2; ++i) { checksum = static_cast<uint8_t>(checksum + out[i]); }
+	out[frame_length - 2] = checksum;
+	out[frame_length - 1] = FRAME_TAIL;
+
+	return frame_length;
+}
 } // namespace vgsolar_link

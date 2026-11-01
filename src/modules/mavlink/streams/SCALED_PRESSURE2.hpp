@@ -37,6 +37,11 @@
 #include <uORB/topics/differential_pressure.h>
 #include <uORB/topics/sensor_baro.h>
 
+#include <board_config.h>
+#ifdef VGSOLAR_PRESSURE_ADC_CHANNEL
+#include <uORB/topics/vgsolar_inputs.h>
+#endif
+
 class MavlinkStreamScaledPressure2 : public MavlinkStream
 {
 public:
@@ -50,6 +55,9 @@ public:
 
 	unsigned get_size() override
 	{
+#ifdef VGSOLAR_PRESSURE_ADC_CHANNEL
+ if (_suction_sub.advertised()) { return MAVLINK_MSG_ID_SCALED_PRESSURE2_LEN + MAVLINK_NUM_NON_PAYLOAD_BYTES; }
+#endif
 		if (_sensor_baro_sub.advertised() || _differential_pressure_sub.advertised()) {
 			return MAVLINK_MSG_ID_SCALED_PRESSURE2_LEN + MAVLINK_NUM_NON_PAYLOAD_BYTES;
 		}
@@ -58,6 +66,10 @@ public:
 	}
 
 private:
+#ifdef VGSOLAR_PRESSURE_ADC_CHANNEL
+ uORB::Subscription _suction_sub{ORB_ID(vgsolar_inputs)};
+ uint64_t _last_suction{0};
+#endif
 	explicit MavlinkStreamScaledPressure2(Mavlink *mavlink) : MavlinkStream(mavlink) {}
 
 	uORB::Subscription _differential_pressure_sub{ORB_ID(differential_pressure), 1};
@@ -65,6 +77,21 @@ private:
 
 	bool send() override
 	{
+#ifdef VGSOLAR_PRESSURE_ADC_CHANNEL
+ const uint64_t now = hrt_absolute_time();
+ if (_suction_sub.advertised() && now - _last_suction >= 500000) {
+  vgsolar_inputs_s input{}; _suction_sub.copy(&input); _last_suction = now;
+  const bool valid = input.enabled && input.pressure_valid && input.timestamp > 0 && input.timestamp <= now
+      && now - input.timestamp < 500000 && PX4_ISFINITE(input.pressure_kpa);
+  mavlink_scaled_pressure2_t msg{}; msg.time_boot_ms = now / 1000;
+  // APM compatibility: signed suction gauge pressure, kPa -> hPa; not barometric altitude.
+  msg.press_abs = valid ? input.pressure_kpa * 10.f : NAN;
+  mavlink_msg_scaled_pressure2_send_struct(_mavlink->get_channel(), &msg);
+ return true;
+ }
+ if (_suction_sub.advertised()) { return false; }
+#endif
+
 		if (_sensor_baro_sub.updated() || _differential_pressure_sub.updated()) {
 			mavlink_scaled_pressure2_t msg{};
 

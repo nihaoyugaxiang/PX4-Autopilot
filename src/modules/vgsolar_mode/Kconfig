@@ -1,0 +1,5 @@
+menuconfig MODULES_VGSOLAR_MODE
+	bool "vgsolar_mode"
+	default n
+	---help---
+		Commander-registered VGSolar robot mode with navigation, suction turns and default-disabled cleaner outputs.

@@ -1,0 +1,11 @@
+uint64 timestamp
+uint64 last_valid_rx
+uint32 rx_frames
+uint32 bad_checksum
+uint32 bad_length
+uint32 timeouts
+uint32 tx_frames
+uint32 tx_errors
+uint32 rx_errors
+uint32 dropped_event
+uint32 dropped_periodic

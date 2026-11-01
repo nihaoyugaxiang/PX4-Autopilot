@@ -56,16 +56,54 @@ void DifferentialActControl::updateActControl()
 	const float dt = math::constrain(_timestamp - timestamp_prev, 1_ms, 10_ms) * 1e-6f;
 
 	// Motor control
-	if (_rover_throttle_setpoint_sub.updated()) {
+	const bool throttle_updated = _rover_throttle_setpoint_sub.updated();
+	const bool steering_updated = _rover_steering_setpoint_sub.updated();
+
+	if (throttle_updated) {
 		rover_throttle_setpoint_s rover_throttle_setpoint{};
-		_rover_throttle_setpoint_sub.copy(&rover_throttle_setpoint);
-		_throttle_setpoint = rover_throttle_setpoint.throttle_body_x;
+		if (_rover_throttle_setpoint_sub.copy(&rover_throttle_setpoint)) {
+			_throttle_setpoint = rover_throttle_setpoint.throttle_body_x;
+			_throttle_timestamp = rover_throttle_setpoint.timestamp;
+		}
 	}
 
-	if (_rover_steering_setpoint_sub.updated()) {
+	if (steering_updated) {
 		rover_steering_setpoint_s rover_steering_setpoint{};
-		_rover_steering_setpoint_sub.copy(&rover_steering_setpoint);
-		_speed_diff_setpoint = rover_steering_setpoint.normalized_steering_setpoint;
+		if (_rover_steering_setpoint_sub.copy(&rover_steering_setpoint)) {
+			_speed_diff_setpoint = rover_steering_setpoint.normalized_steering_setpoint;
+			_steering_timestamp = rover_steering_setpoint.timestamp;
+		}
+	}
+
+	vgsolar_safety_status_s safety{};
+	if (_safety_status_sub.copy(&safety)) {
+		_safety_status.timestamp = safety.timestamp;
+		_safety_status.state = safety.state;
+		_safety_status.enabled = safety.enabled;
+		_safety_status.config_valid = safety.config_valid;
+		_safety_status.left_valid = safety.left_valid;
+		_safety_status.right_valid = safety.right_valid;
+		_safety_status.stop_request = safety.stop_request;
+		_safety_status.latched = safety.latched;
+	}
+
+	const bool output_allowed = _output_gate.allow(_param_vgs_safe_enable.get() == 1, _safety_status,
+						 _throttle_timestamp, _steering_timestamp, _timestamp,
+						 throttle_updated, steering_updated);
+
+	vgsolar_mode_status_s mode{};
+	vehicle_status_s vehicle{};
+	bool mode_allowed = true;
+	if (_vgsolar_mode_sub.copy(&mode) && _vgsolar_vehicle_sub.copy(&vehicle)
+	    && mode.mode_id != 255 && mode.mode_id == vehicle.nav_state) {
+		mode_allowed = rover_differential::mode_allows(true, mode.active, mode.motion_allowed, mode.timestamp, _timestamp);
+	}
+	if (!output_allowed || !mode_allowed) {
+		// Clear cached commands on inhibit so a later recovery cannot replay an old request.
+		_throttle_setpoint = NAN;
+		_speed_diff_setpoint = NAN;
+		stopVehicle();
+		return;
 	}
 
 	if (PX4_ISFINITE(_throttle_setpoint) && PX4_ISFINITE(_speed_diff_setpoint)) {
@@ -81,6 +119,9 @@ void DifferentialActControl::updateActControl()
 		actuator_motors.timestamp = _timestamp;
 		_actuator_motors_pub.publish(actuator_motors);
 
+	} else {
+		// Invalid finite-domain control data must revoke the previously published motor command.
+		stopVehicle();
 	}
 
 }
@@ -101,6 +142,8 @@ Vector2f DifferentialActControl::computeInverseKinematics(float throttle, const 
 
 void DifferentialActControl::stopVehicle()
 {
+	_adjusted_throttle_setpoint.setForcedValue(0.f);
+	_timestamp = hrt_absolute_time();
 	actuator_motors_s actuator_motors{};
 	actuator_motors.reversible_flags = _param_r_rev.get();
 	actuator_motors.control[0] = 0.f;

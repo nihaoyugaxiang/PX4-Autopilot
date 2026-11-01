@@ -154,6 +154,14 @@ void LoggedTopics::add_default_topics()
 	add_topic("vgsolar_encoder_status", 20);
 	// 模块可能在logger启动后手动启动；常规订阅可在稍后出现首次发布时开始记录。
 	add_topic("vgsolar_safety_status", 20);
+	add_topic("vgsolar_mode_status", 20);
+	add_topic("vgsolar_command");
+	add_topic("vgsolar_event");
+	add_topic("vgsolar_link_status", 1000);
+	add_topic("vgsolar_link_ack");
+	add_topic("vgsolar_param_feedback");
+	add_topic("vgsolar_safety_request");
+	add_topic("vgsolar_esc_status", 100);
 	add_optional_topic("vtol_vehicle_status", 200);
 	add_topic("wind", 1000);
 	add_topic("fixed_wing_lateral_setpoint");

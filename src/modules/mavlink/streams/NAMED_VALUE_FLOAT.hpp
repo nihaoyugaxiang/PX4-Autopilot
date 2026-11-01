@@ -36,6 +36,11 @@
 
 #include <uORB/topics/debug_key_value.h>
 
+#include <board_config.h>
+#ifdef VGSOLAR_PRESSURE_ADC_CHANNEL
+#include <uORB/topics/vgsolar_inputs.h>
+#endif
+
 class MavlinkStreamNamedValueFloat : public MavlinkStream
 {
 public:
@@ -49,16 +54,38 @@ public:
 
 	unsigned get_size() override
 	{
+#ifdef VGSOLAR_PRESSURE_ADC_CHANNEL
+ if (_suction_sub.advertised()) { return 2 * (MAVLINK_MSG_ID_NAMED_VALUE_FLOAT_LEN + MAVLINK_NUM_NON_PAYLOAD_BYTES); }
+#endif
 		return _debug_key_value_sub.advertised() ? MAVLINK_MSG_ID_NAMED_VALUE_FLOAT_LEN + MAVLINK_NUM_NON_PAYLOAD_BYTES : 0;
 	}
 
 private:
+#ifdef VGSOLAR_PRESSURE_ADC_CHANNEL
+ uORB::Subscription _suction_sub{ORB_ID(vgsolar_inputs)};
+ uint64_t _last_suction{0};
+#endif
 	explicit MavlinkStreamNamedValueFloat(Mavlink *mavlink) : MavlinkStream(mavlink) {}
 
 	uORB::Subscription _debug_key_value_sub{ORB_ID(debug_key_value)};
 
 	bool send() override
 	{
+#ifdef VGSOLAR_PRESSURE_ADC_CHANNEL
+ const uint64_t now = hrt_absolute_time();
+ if (_suction_sub.advertised() && now - _last_suction >= 500000) {
+  vgsolar_inputs_s input{}; _suction_sub.copy(&input); _last_suction = now;
+  const bool valid = input.enabled && input.pressure_valid && input.timestamp > 0 && input.timestamp <= now
+      && now - input.timestamp < 500000 && PX4_ISFINITE(input.pressure_kpa);
+  mavlink_named_value_float_t msg{}; msg.time_boot_ms = now / 1000;
+  strncpy(msg.name, "SUCT_PKPA", sizeof(msg.name)); msg.value = valid ? input.pressure_kpa : NAN;
+  mavlink_msg_named_value_float_send_struct(_mavlink->get_channel(), &msg);
+  strncpy(msg.name, "SUCT_HLT", sizeof(msg.name)); msg.value = valid ? 1.f : 0.f;
+  mavlink_msg_named_value_float_send_struct(_mavlink->get_channel(), &msg);
+ return true;
+ }
+#endif
+
 		debug_key_value_s debug;
 
 		if (_debug_key_value_sub.update(&debug)) {

@@ -1,6 +1,9 @@
 #!/bin/sh
 # Actual VGSolar hardware from AP hwdef; no V6C revision detection.
 board_adc start
+# NCU status and command link; disconnected sensors and actuators remain fail-closed.
+vgsolar_link start
+vgsolar_mode start
 # 只读负压/红外采集默认不开机运行，先手动验证传感器和原接线。
 if param compare VGS_IN_EN 1
 then
@@ -29,4 +32,10 @@ fi
 if ! qmc5883l -I -b 4 -a 0x0d -R 0 start
 then
     qmc5883p -I -b 4 -a 0x2c -R 0 start
+fi
+
+# Read-only motor-controller telemetry; does not send Modbus writes.
+if param compare VGS_ESC_EN 1
+then
+    vgsolar_esc start
 fi

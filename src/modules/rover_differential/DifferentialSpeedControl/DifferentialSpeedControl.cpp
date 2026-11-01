@@ -45,6 +45,7 @@ DifferentialSpeedControl::DifferentialSpeedControl(ModuleParams *parent) : Modul
 void DifferentialSpeedControl::updateParams()
 {
 	ModuleParams::updateParams();
+	_wheel_config_timestamp = 0;
 
 	// Set up PID controller
 	_pid_speed.setGains(_param_ro_speed_p.get(), _param_ro_speed_i.get(), 0.f);
@@ -55,6 +56,21 @@ void DifferentialSpeedControl::updateParams()
 	if (_param_ro_accel_limit.get() > FLT_EPSILON) {
 		_adjusted_speed_setpoint.setSlewRate(_param_ro_accel_limit.get());
 	}
+}
+
+void DifferentialSpeedControl::refreshWheelFeedbackConfig()
+{
+	const uint64_t now = hrt_absolute_time();
+	if (_wheel_config_timestamp != 0 && now >= _wheel_config_timestamp && now - _wheel_config_timestamp < 1000000) { return; }
+	int32_t enabled = 0;
+	float radius = 0.f;
+	const param_t source_handle = param_find("VGS_WHL_CTRL");
+	const param_t radius_handle = param_find("VGS_WHL_RAD");
+	if (source_handle != PARAM_INVALID) { param_get(source_handle, &enabled); }
+	if (radius_handle != PARAM_INVALID) { param_get(radius_handle, &radius); }
+	_wheel_feedback_enabled = enabled == 1;
+	_wheel_radius_m = radius;
+	_wheel_config_timestamp = now;
 }
 
 void DifferentialSpeedControl::updateSpeedControl()
@@ -70,9 +86,16 @@ void DifferentialSpeedControl::updateSpeedControl()
 		const float speed_setpoint = calcSpeedSetpoint();
 		rover_throttle_setpoint_s rover_throttle_setpoint{};
 		rover_throttle_setpoint.timestamp = _timestamp;
-		rover_throttle_setpoint.throttle_body_x = RoverControl::speedControl(_adjusted_speed_setpoint, _pid_speed,
-				speed_setpoint, _vehicle_speed, _param_ro_accel_limit.get(), _param_ro_decel_limit.get(),
-				_param_ro_max_thr_speed.get(), dt);
+		if (_wheel_feedback_enabled && !PX4_ISFINITE(_vehicle_speed)) {
+			// Never integrate against a missing wheel sample or silently switch sources.
+			_pid_speed.resetIntegral();
+			_adjusted_speed_setpoint.setForcedValue(0.f);
+			rover_throttle_setpoint.throttle_body_x = NAN;
+		} else {
+			rover_throttle_setpoint.throttle_body_x = RoverControl::speedControl(_adjusted_speed_setpoint, _pid_speed,
+					speed_setpoint, _vehicle_speed, _param_ro_accel_limit.get(), _param_ro_decel_limit.get(),
+					_param_ro_max_thr_speed.get(), dt);
+		}
 		rover_throttle_setpoint.throttle_body_y = 0.f;
 		_rover_throttle_setpoint_pub.publish(rover_throttle_setpoint);
 	}
@@ -104,6 +127,16 @@ void DifferentialSpeedControl::updateSubscriptions()
 		Vector3f velocity_xyz = _vehicle_attitude_quaternion.rotateVectorInverse(velocity_ned);
 		Vector2f velocity_2d = Vector2f(velocity_xyz(0), velocity_xyz(1));
 		_vehicle_speed = velocity_2d.norm() > _param_ro_speed_th.get() ? sign(velocity_2d(0)) * velocity_2d.norm() : 0.f;
+	}
+
+	if (_wheel_feedback_enabled) {
+		wheel_encoders_s wheel{};
+		vgsolar_encoder_status_s capture{};
+		if (_wheel_sub.copy(&wheel) && _wheel_capture_sub.copy(&capture)) {
+			const auto feedback = rover_control::wheel_feedback(hrt_absolute_time(), wheel.timestamp,
+					wheel.wheel_speed[0], wheel.wheel_speed[1], capture.timestamp, capture.capture_active, _wheel_radius_m);
+			_vehicle_speed = feedback.valid ? feedback.body_speed_m_s : NAN;
+		} else { _vehicle_speed = NAN; }
 	}
 
 	if (_rover_speed_setpoint_sub.updated()) {

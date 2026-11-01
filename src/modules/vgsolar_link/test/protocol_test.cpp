@@ -23,6 +23,14 @@ static size_t make_ncu_frame(uint8_t command, const uint8_t *body, uint8_t lengt
 
 int main()
 {
+	uint8_t nav[15]{};
+	assert(build_navigation_frame(1, 3, 0x12345678, -123, nav, sizeof(nav)) == 15);
+	assert(nav[2] == 0xbb && nav[3] == 4 && nav[4] == 8 && nav[5] == 1 && nav[6] == 3);
+	assert(nav[7] == 0x78 && nav[10] == 0x12 && nav[11] == 0x85 && nav[12] == 0xff && nav[14] == 0xff);
+	uint8_t nav_checksum = 0;
+	for (unsigned i = 2; i < 13; ++i) { nav_checksum = static_cast<uint8_t>(nav_checksum + nav[i]); }
+	assert(nav[13] == nav_checksum);
+	assert(build_navigation_frame(1, 3, 1, 0, nav, 14) == 0);
 	StatusFields fields{};
 	fields.battery_percent = 87;
 	fields.longitude = 123456789;
@@ -127,5 +135,14 @@ int main()
 	for (size_t i = 2; i < 7; ++i) { checksum = static_cast<uint8_t>(checksum + ack[i]); }
 	assert(ack[7] == checksum);
 
+	uint8_t param_feedback[FRAME_OVERHEAD + 7]{};
+	assert(build_param_feedback(0x0104, 3, 100, param_feedback, sizeof(param_feedback)) == sizeof(param_feedback));
+	assert(param_feedback[2] == SOURCE_FCU && param_feedback[3] == CMD_PARAM_FEEDBACK && param_feedback[4] == 7);
+	assert(param_feedback[5] == 0x04 && param_feedback[6] == 0x01 && param_feedback[7] == 3);
+	assert(param_feedback[8] == 100 && param_feedback[9] == 0 && param_feedback[10] == 0 && param_feedback[11] == 0);
+	checksum = 0;
+	for (size_t i = 2; i < sizeof(param_feedback) - 2; ++i) { checksum = static_cast<uint8_t>(checksum + param_feedback[i]); }
+	assert(param_feedback[sizeof(param_feedback) - 2] == checksum && param_feedback[sizeof(param_feedback) - 1] == FRAME_TAIL);
+	assert(build_param_feedback(0x0104, 3, 100, param_feedback, sizeof(param_feedback) - 1) == 0);
 	puts("PASS: APM status vector, capacity, split/concatenated NCU frames, malformed-frame recovery, timeout, reject ACK");
 }

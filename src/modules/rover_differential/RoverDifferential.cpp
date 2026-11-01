@@ -81,6 +81,8 @@ void RoverDifferential::Run()
 		}
 	}
 
+	if (!_vehicle_control_mode.flag_armed) { _differential_speed_control.refreshWheelFeedbackConfig(); }
+
 	if (_vehicle_control_mode.flag_armed && _sanity_checks_passed) {
 
 		_was_armed = true;
@@ -135,6 +137,16 @@ void RoverDifferential::generateSetpoints()
 
 void RoverDifferential::updateControllers()
 {
+	vehicle_status_s vehicle{};
+	vgsolar_mode_status_s mode{};
+	if (_vehicle_status_sub.copy(&vehicle) && _vgsolar_mode_sub.copy(&mode)
+	    && !rover_differential::mode_allows(mode.mode_id != 255 && mode.mode_id == vehicle.nav_state,
+						mode.active, mode.motion_allowed, mode.timestamp, hrt_absolute_time())) {
+		// Standby/ESTOP, lift sequencing and lost mode heartbeat must not accumulate controller I terms.
+		reset();
+		_differential_act_control.stopVehicle();
+		return;
+	}
 	if (_vehicle_control_mode.flag_control_position_enabled) {
 		_differential_pos_control.updatePosControl();
 	}

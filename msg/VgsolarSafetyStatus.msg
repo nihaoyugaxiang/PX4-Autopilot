@@ -1,4 +1,4 @@
-# VGSolar边缘停止请求诊断。没有执行器消费者，不能据此认定车辆已停止。
+# VGSolar edge stop request consumed by mode and differential output gates; hardware stopping still needs acceptance.
 uint64 timestamp
 uint64 left_timestamp
 uint64 right_timestamp

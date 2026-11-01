@@ -53,6 +53,10 @@
 #include <uORB/topics/rover_steering_setpoint.h>
 #include <uORB/topics/vehicle_attitude.h>
 #include <uORB/topics/vehicle_local_position.h>
+#include <uORB/topics/wheel_encoders.h>
+#include <uORB/topics/vgsolar_encoder_status.h>
+#include <lib/rover_control/WheelSpeedFeedback.hpp>
+#include <px4_platform_common/param.h>
 
 using namespace matrix;
 
@@ -73,6 +77,9 @@ public:
 	 * @brief Generate and publish RoverThrottleSetpoint from roverSpeedSetpoint.
 	 */
 	void updateSpeedControl();
+
+	// Called by the owner only while disarmed; source and radius remain latched when armed.
+	void refreshWheelFeedbackConfig();
 
 	/**
 	 * @brief Check if the necessary parameters are set.
@@ -104,6 +111,8 @@ private:
 	float calcSpeedSetpoint();
 
 	// uORB subscriptions
+	uORB::SubscriptionData<wheel_encoders_s> _wheel_sub{ORB_ID(wheel_encoders)};
+	uORB::SubscriptionData<vgsolar_encoder_status_s> _wheel_capture_sub{ORB_ID(vgsolar_encoder_status)};
 	uORB::Subscription _vehicle_attitude_sub{ORB_ID(vehicle_attitude)};
 	uORB::Subscription _vehicle_local_position_sub{ORB_ID(vehicle_local_position)};
 	uORB::Subscription _rover_speed_setpoint_sub{ORB_ID(rover_speed_setpoint)};
@@ -114,7 +123,9 @@ private:
 	uORB::Publication<rover_speed_status_s> _rover_speed_status_pub{ORB_ID(rover_speed_status)};
 
 	// Variables
-	hrt_abstime _timestamp{0};
+	hrt_abstime _timestamp{0}, _wheel_config_timestamp{0};
+	bool _wheel_feedback_enabled{false};
+	float _wheel_radius_m{0.f};
 	Quatf _vehicle_attitude_quaternion{};
 	float _vehicle_speed{0.f}; // [m/s] Positiv: Forwards, Negativ: Backwards
 	float _speed_setpoint{NAN};

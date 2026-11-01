@@ -50,3 +50,8 @@ param set-default PWM_MAIN_FAIL5 0
 param set-default PWM_MAIN_MIN5 1000
 param set-default PWM_MAIN_MAX5 2000
 param set-default PWM_MAIN_CENT5 1500
+
+# Project charge mapping is used by NCU and cleaner cutoff; native battery_status remains PX4.
+param set-default VGS_BAT_SRC 1
+param set-default VGS_BAT_MIN 19.8
+param set-default VGS_BAT_MAX 25.2

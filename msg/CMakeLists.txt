@@ -46,7 +46,15 @@ set(msg_files
 	AdcReport.msg
 	VgsolarInputs.msg
 	VgsolarEncoderStatus.msg
+	VgsolarEscStatus.msg
 	VgsolarSafetyStatus.msg
+	VgsolarSafetyRequest.msg
+	VgsolarEvent.msg
+	VgsolarLinkStatus.msg
+	VgsolarCommand.msg
+	VgsolarLinkAck.msg
+	VgsolarModeStatus.msg
+	VgsolarParamFeedback.msg
 	Airspeed.msg
 	AirspeedWind.msg
 	AutotuneAttitudeControlStatus.msg

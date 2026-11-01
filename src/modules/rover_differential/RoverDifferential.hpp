@@ -48,6 +48,7 @@
 #include <uORB/topics/parameter_update.h>
 #include <uORB/topics/vehicle_control_mode.h>
 #include <uORB/topics/vehicle_status.h>
+#include <uORB/topics/vgsolar_mode_status.h>
 
 // Local includes
 #include "DifferentialActControl/DifferentialActControl.hpp"
@@ -116,6 +117,7 @@ private:
 	// uORB subscriptions
 	uORB::Subscription _parameter_update_sub{ORB_ID(parameter_update)};
 	uORB::Subscription _vehicle_status_sub{ORB_ID(vehicle_status)};
+	uORB::Subscription _vgsolar_mode_sub{ORB_ID(vgsolar_mode_status)};
 	uORB::Subscription _vehicle_control_mode_sub{ORB_ID(vehicle_control_mode)};
 	vehicle_control_mode_s _vehicle_control_mode{};
 

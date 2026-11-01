@@ -48,6 +48,10 @@
 #include <uORB/topics/rover_steering_setpoint.h>
 #include <uORB/topics/rover_throttle_setpoint.h>
 #include <uORB/topics/manual_control_setpoint.h>
+#include <uORB/topics/vgsolar_safety_status.h>
+#include "DifferentialOutputGate.hpp"
+#include <uORB/topics/vgsolar_mode_status.h>
+#include <uORB/topics/vehicle_status.h>
 
 /**
  * @brief Class for differential actuator control.
@@ -91,6 +95,9 @@ private:
 	uORB::Subscription _actuator_motors_sub{ORB_ID(actuator_motors)};
 	uORB::Subscription _rover_steering_setpoint_sub{ORB_ID(rover_steering_setpoint)};
 	uORB::Subscription _rover_throttle_setpoint_sub{ORB_ID(rover_throttle_setpoint)};
+	uORB::SubscriptionData<vgsolar_mode_status_s> _vgsolar_mode_sub{ORB_ID(vgsolar_mode_status)};
+	uORB::SubscriptionData<vehicle_status_s> _vgsolar_vehicle_sub{ORB_ID(vehicle_status)};
+	uORB::Subscription _safety_status_sub{ORB_ID(vgsolar_safety_status)};
 
 	// uORB publications
 	uORB::Publication<actuator_motors_s> 	     _actuator_motors_pub{ORB_ID(actuator_motors)};
@@ -99,6 +106,10 @@ private:
 	hrt_abstime _timestamp{0};
 	float _throttle_setpoint{NAN};
 	float _speed_diff_setpoint{NAN};
+	uint64_t _throttle_timestamp{0};
+	uint64_t _steering_timestamp{0};
+	rover_differential::SafetySnapshot _safety_status{};
+	rover_differential::OutputGate _output_gate{};
 
 	// Controllers
 	SlewRate<float> _adjusted_throttle_setpoint{0.f};
@@ -108,6 +119,7 @@ private:
 		(ParamInt<px4::params::CA_R_REV>) _param_r_rev,
 		(ParamFloat<px4::params::RO_ACCEL_LIM>) _param_ro_accel_limit,
 		(ParamFloat<px4::params::RO_DECEL_LIM>) _param_ro_decel_limit,
-		(ParamFloat<px4::params::RO_MAX_THR_SPEED>) _param_ro_max_thr_speed
+		(ParamFloat<px4::params::RO_MAX_THR_SPEED>) _param_ro_max_thr_speed,
+		(ParamInt<px4::params::VGS_SAFE_EN>) _param_vgs_safe_enable
 	)
 };
