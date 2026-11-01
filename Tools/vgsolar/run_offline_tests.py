@@ -53,7 +53,7 @@ def main():
                 failures += 1
     print(f"RESULT: {len(tests) - failures}/{len(tests)} passed", flush=True)
     if args.all:
-        for script in ("ncu_client_test.py", "check_pwm_bench.py"):
+        for script in ("ncu_client_test.py", "check_pwm_bench.py", "check_boot_led.py"):
             print(f"HOST CHECK: {script}", flush=True)
             result = subprocess.run([sys.executable, "-B", str(ROOT / "Tools/vgsolar" / script)])
             if result.returncode:

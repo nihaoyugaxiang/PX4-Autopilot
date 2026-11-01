@@ -44,6 +44,8 @@
 #include "chip.h"
 #include "stm32_gpio.h"
 #include "board_config.h"
+#include <drivers/drv_hrt.h>
+#include <nuttx/irq.h>
 
 #include <nuttx/board.h>
 #include <arch/board/board.h>
@@ -233,3 +235,42 @@ void board_autoled_off(int led)
 }
 
 #endif /* CONFIG_ARCH_LEDS */
+
+#ifndef BOOTLOADER
+// HRT is available after px4_platform_init. Only GPIO writes run in the callback.
+static struct hrt_call boot_led_call;
+static bool boot_led_done;
+static bool boot_led_on;
+
+static void boot_led_tick(void *arg)
+{
+ (void)arg;
+ boot_led_on = !boot_led_on;
+ stm32_gpiowrite(GPIO_nLED_BLUE, !boot_led_on);
+}
+
+void vgsolar_boot_led_start(void)
+{
+ boot_led_done = false;
+ boot_led_on = true;
+ stm32_gpiowrite(GPIO_nLED_BLUE, false);
+ // Toggle every 125 ms: four complete flashes per second.
+ hrt_call_every(&boot_led_call, 125000, 125000, boot_led_tick, NULL);
+}
+
+void vgsolar_boot_led_complete(void)
+{
+ // Keep cancel and final GPIO update atomic against the HRT interrupt.
+ const irqstate_t flags = enter_critical_section();
+ hrt_cancel(&boot_led_call);
+ boot_led_done = true;
+ boot_led_on = true;
+ stm32_gpiowrite(GPIO_nLED_BLUE, false);
+ leave_critical_section(flags);
+}
+
+bool vgsolar_boot_led_completed(void)
+{
+ return boot_led_done;
+}
+#endif

@@ -657,6 +657,7 @@ fi
 #
 # Unset all script parameters to free RAM.
 #
+set BOARD_RC_BOOT_COMPLETE ${R}etc/init.d/rc.board_boot_complete
 unset R
 unset FCONFIG
 unset FEXTRAS
@@ -678,3 +679,11 @@ unset VEHICLE_TYPE
 # Boot is complete, inform MAVLink app(s) that the system is now fully up and running.
 #
 mavlink boot_complete
+
+
+# Optional board startup indicator, after the complete startup sequence.
+if [ -f $BOARD_RC_BOOT_COMPLETE ]
+then
+ . $BOARD_RC_BOOT_COMPLETE
+fi
+unset BOARD_RC_BOOT_COMPLETE

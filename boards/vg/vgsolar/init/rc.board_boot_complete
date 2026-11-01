@@ -1,0 +1,3 @@
+#!/bin/sh
+# Startup completed, even when GPS/RC/battery preflight checks are still pending.
+led_control boot_complete

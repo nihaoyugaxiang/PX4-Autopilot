@@ -43,6 +43,7 @@
 #include <unistd.h>
 
 #include <drivers/drv_hrt.h>
+#include <board_config.h>
 #include <drivers/drv_led.h>
 
 #include <uORB/Publication.hpp>
@@ -112,6 +113,18 @@ static void run_led_test1()
 int
 led_control_main(int argc, char *argv[])
 {
+#ifdef VGSOLAR_BOOT_LED
+ if (argc == 2 && strcmp(argv[1], "boot_complete") == 0) {
+  vgsolar_boot_led_complete();
+  return 0;
+ }
+ if (argc == 2 && strcmp(argv[1], "boot_status") == 0) {
+  PX4_INFO("VGSolar blue LED: %s (not an arming-ready indication)",
+    vgsolar_boot_led_completed() ? "startup complete / steady" : "initializing / flashing");
+  return 0;
+ }
+#endif
+
 	int myoptind = 1;
 	int ch;
 	const char *myoptarg = nullptr;

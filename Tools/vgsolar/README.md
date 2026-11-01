@@ -9,7 +9,7 @@ make -j4 vg_vgsolar_default
 python3 -B Tools/vgsolar/run_offline_tests.py --sanitize --all
 ```
 
-`--all` 包含12组C++回归（含生产模式主机测试）、9项NCU客户端测试和PWM板级资源／脚本检查。模式测试需要先构建以生成uORB消息头；仅跑11组纯逻辑／协议测试可省略`--all`。主机需要g++、Python3、bash；离线测试本身不需要pyserial、串口或硬件。临时测试二进制在系统临时目录退出后清理，不写入固件源码树。
+`--all` 包含12组C++回归（含生产模式主机测试）、9项NCU客户端测试和PWM、启动LED板级检查。模式测试需要先构建以生成uORB消息头；仅跑11组纯逻辑／协议测试可省略`--all`。主机需要g++、Python3、bash；离线测试本身不需要pyserial、串口或硬件。临时测试二进制在系统临时目录退出后清理，不写入固件源码树。
 
 ## 文件用途
 
@@ -18,6 +18,7 @@ python3 -B Tools/vgsolar/run_offline_tests.py --sanitize --all
 | ncu_client.py | RK3588／PC NCU客户端，默认只打印命令，monitor只读，--send明确发送 |
 | requirements-rk3588.txt | 实际串口使用所需pyserial依赖 |
 | ncu_client_test.py | 协议布局、边界、解析、写入、退出停车、Linux虚拟串口验证 |
+| check_boot_led.py | 生产LED后端定时、极性、完成取消及启动顺序检查 |
 | check_pwm_bench.py | 五路引脚／定时器、HRT隔离、禁用默认值、NSH设置／停止脚本回归 |
 | run_offline_tests.py | 固件纯逻辑／生产模式主机测试及完整测试统一入口 |
 
