@@ -1,5 +1,5 @@
 {
-  "status": "B1 bench port: user verified PX4/Rover boot, sensor data, EKF attitude, SD logging, and nose-up pitch with driver rotation 2 plus saved board rotation 6; full vehicle port incomplete",
+  "status": "Rover/Copter software hardware baseline: five native PWM outputs and both control stacks configured; new hardware validation pending",
   "source": {
     "distribution": "Ubuntu-22.04",
     "repository": "/home/yuyuyyu/rover",
@@ -34,7 +34,7 @@
       "forward": "USB connector side",
       "confirmation_source": "user 2026-10-29",
       "saved_SENS_BOARD_ROT": 6,
-      "SENS_BOARD_ROT_in_firmware_defaults": false
+      "SENS_BOARD_ROT_in_firmware_defaults": true
     }
   },
   "fram": {
@@ -191,7 +191,8 @@
       "USART6": 5,
       "UART7": 6,
       "UART8": 7
-    }
+    },
+    "status": "Historical B0/B1 build configuration; see hardware_baseline for current configuration"
   },
   "first_flash": {
     "target": "vg_vgsolar_bootloader",
@@ -200,8 +201,8 @@
     "application_address": "0x08020000",
     "board_id": 0,
     "usb_only": true,
-    "combined_hex": "build/vgsolar_first_flash/VGSolar_Rover_B0_首次烧写.hex",
-    "status": "both builds and HEX roundtrip checked; hardware untested"
+    "combined_hex": "build/vgsolar_first_flash/VGSolar_Rover_Copter_首次烧写.hex",
+    "status": "Current packaging verifies Rover/Copter/PWM symbols and both image addresses; new combined image hardware untested"
   },
   "physical_validation": {
     "date": "2026-10-29",
@@ -246,5 +247,67 @@
       },
       "yaw_observation": "Yaw changed 2.9 -> 144.9 degrees during tilt; quat_reset_counter 0 -> 1. Heading not validated."
     }
+  },
+  "hardware_baseline": {
+    "date": "2026-11-05",
+    "target": "vg_vgsolar_default",
+    "supported_airframes": {
+      "default": 50000,
+      "generic_quadcopter": 4001
+    },
+    "default_SENS_BOARD_ROT": 6,
+    "serial_roles": {
+      "GPS1": "/dev/ttyS5",
+      "TEL1": "/dev/ttyS4",
+      "TEL2": "/dev/ttyS2",
+      "RC": "/dev/ttyS6"
+    },
+    "USART3_serial_console": false,
+    "TEL2_enabled_by_default": false,
+    "pwm_outputs": [
+      {
+        "channel": 1,
+        "pin": "PE13",
+        "timer": "TIM1_CH3",
+        "timer_group": 0
+      },
+      {
+        "channel": 2,
+        "pin": "PE14",
+        "timer": "TIM1_CH4",
+        "timer_group": 0
+      },
+      {
+        "channel": 3,
+        "pin": "PD14",
+        "timer": "TIM4_CH3",
+        "timer_group": 1
+      },
+      {
+        "channel": 4,
+        "pin": "PD15",
+        "timer": "TIM4_CH4",
+        "timer_group": 1
+      },
+      {
+        "channel": 5,
+        "pin": "PC8",
+        "timer": "TIM3_CH3",
+        "timer_group": 2
+      }
+    ],
+    "pwm_default_hz": 50,
+    "pwm_default_functions": 0,
+    "pwm_default_disarmed": 0,
+    "pwm_default_failsafe": 0,
+    "hardware_validation": "Pending for these changes; physical_validation records below describe historical builds",
+    "excluded": [
+      "DShot",
+      "PX4IO",
+      "TIM3 tone_alarm (shares PWM5 timer)",
+      "cleaning business logic",
+      "wheel encoder driver",
+      "custom companion protocol"
+    ]
   }
 }

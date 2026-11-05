@@ -106,7 +106,7 @@ __EXPORT int board_app_initialize(uintptr_t arg)
     }
 #endif
     px4_platform_configure();
-    syslog(LOG_INFO, "[vgsolar] PX4 Rover bench image: actuator drivers disabled\n");
+    syslog(LOG_INFO, "[vgsolar] Rover/Copter hardware baseline: 5 PWM outputs available\n");
 #endif /* !BOOTLOADER */
     return OK;
 }

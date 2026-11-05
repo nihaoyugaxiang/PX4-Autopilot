@@ -1,4 +1,19 @@
-# VGSolar PX4 Rover B1：IMU 方向修正验证固件
+# VGSolar PX4：Rover / Copter 硬件基线
+
+## 当前配置（2026-11-05）
+
+本分支在 B3 罗盘驱动修正之上，补入原生五路 PWM 和多旋翼控制模块。
+同一个 `vg_vgsolar_default` 固件默认选择差速 Rover（50000），也可选择 Generic Quadcopter（4001）；按机型启动对应模块。
+五路输出功能默认未分配，上锁/失效 PWM 默认值为 0。安装方向默认 `SENS_BOARD_ROT=6`（STM32 面朝上、USB 朝前），保留用户已保存参数的优先级。
+GPS1、TELEM1、RC 分别使用 USART6、UART5、UART7；USART3 已释放调试控制台并提供为可选 TELEM2，默认关闭。
+
+完整配置、机型切换、PWM 引脚和实板检查见 [硬件与机型配置说明](HARDWARE_SETUP.md)。
+编译通过只证明软件集成；本轮没有新增实板验收，罗盘航向、PWM 电气波形、GPS/遥控及整车/飞行验证仍需完成。
+清洁业务、编码器和定制伴随协议不在本次硬件基线范围内。DShot、PX4IO 和蜂鸣器定时器驱动未启用，原因见配置说明。
+
+## 以下为 B0/B1 历史交付说明
+
+下文“未编入输出驱动”“安装参数未写入默认值”等描述属于历史固件；当前配置以本页上节和 `HARDWARE_SETUP.md` 为准。
 
 该板型已从第一阶段“注册骨架”推进到可编译的最小板级移植。基线为 PX4 v1.17.0，目标 `vg_vgsolar_default`。B0 的目的是验证 CPU/NuttX 启动、差速 Rover 运行、USB/MAVLink、传感器和存储；不用于行驶或清洁作业。
 

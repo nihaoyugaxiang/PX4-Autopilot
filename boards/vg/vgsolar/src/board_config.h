@@ -31,7 +31,7 @@
  *
  ****************************************************************************/
 
-/** VGSolar FMU V3.1: bench-only PX4 Rover bring-up. */
+/** VGSolar FMU V3.1: shared Rover/multicopter board support. */
 #pragma once
 #include <px4_platform_common/px4_config.h>
 #include <nuttx/compiler.h>
@@ -51,7 +51,7 @@
 #define ADC_BATTERY_CURRENT_CHANNEL ADC1_CH(18)  /* PA4 */
 #define ADC_CHANNELS ((1 << 4) | (1 << 18) | (1 << 10) | (1 << 11))
 
-/* Bench image has no hardware actuator driver. Never drive encoder pins. */
+/* Only the five wired actuator outputs; never drive encoder pins. */
 #define DIRECT_PWM_OUTPUT_CHANNELS 5
 #define BOARD_NUM_IO_TIMERS 3
 #define HRT_TIMER 8

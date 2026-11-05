@@ -32,7 +32,8 @@
  ****************************************************************************/
 
 #include <px4_arch/io_timer_hw_description.h>
-/* Resource description only: pwm_out and dshot are absent from this image.
+/* Five native PWM outputs: PE13, PE14, PD14, PD15, PC8, in that order.
+ * Channels 1/2 share TIM1 frequency; channels 3/4 share TIM4 frequency.
  * PA8/PE11/PA0/PA1 stay inputs for the original wheel encoders.
  * PC8 uses TIM3 here; TIM8 remains reserved for HRT.
  */

@@ -1,7 +1,10 @@
 #!/bin/sh
-# Rover software starts; actuator hardware drivers are not built into B0.
+# Default to differential Rover; a saved Copter airframe takes precedence.
 param set-default SYS_AUTOSTART 50000
 param set-default SYS_USB_AUTO 2
+# STM32 side up, USB edge forward; verified on the original board.
+# A different physical installation requires its own SENS_BOARD_ROT value.
+param set-default SENS_BOARD_ROT 6
 # Keep logging while disarmed for the bench sensor check.
 param set-default SDLOG_MODE 1
 # Use the explicit project defaults, not the older hwdef 11.0/29.14 values.
@@ -9,3 +12,33 @@ param set-default SDLOG_MODE 1
 param set-default BAT1_V_DIV 20.65
 param set-default BAT1_A_PER_V 85
 param set-default BAT1_N_CELLS 6
+
+# Serial assignments: GPS1=USART6, TELEM1=UART5, RC=UART7.
+# TELEM2=USART3 is available for MAVLink, but is disabled until configured.
+param set-default GPS_1_CONFIG 201
+param set-default MAV_0_CONFIG 101
+param set-default MAV_0_FLOW_CTRL 0
+param set-default MAV_1_CONFIG 0
+param set-default RC_PORT_CONFIG 300
+
+# Timer groups 0/1/2 are hardware TIM1/TIM4/TIM3. Start with 50 Hz PWM.
+# Channels remain unassigned until the vehicle wiring and ESCs are configured.
+# set-default preserves saved assignments; inspect them when changing vehicles.
+param set-default PWM_MAIN_TIM0 50
+param set-default PWM_MAIN_TIM1 50
+param set-default PWM_MAIN_TIM2 50
+param set-default PWM_MAIN_FUNC1 0
+param set-default PWM_MAIN_FUNC2 0
+param set-default PWM_MAIN_FUNC3 0
+param set-default PWM_MAIN_FUNC4 0
+param set-default PWM_MAIN_FUNC5 0
+param set-default PWM_MAIN_DIS1 0
+param set-default PWM_MAIN_DIS2 0
+param set-default PWM_MAIN_DIS3 0
+param set-default PWM_MAIN_DIS4 0
+param set-default PWM_MAIN_DIS5 0
+param set-default PWM_MAIN_FAIL1 0
+param set-default PWM_MAIN_FAIL2 0
+param set-default PWM_MAIN_FAIL3 0
+param set-default PWM_MAIN_FAIL4 0
+param set-default PWM_MAIN_FAIL5 0
