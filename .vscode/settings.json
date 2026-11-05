@@ -1,4 +1,12 @@
 {
+        "python.defaultInterpreterPath": "/home/yu/.venvs/px4-117/bin/python3",
+        "cmake.configureSettings": {
+                "PYTHON_EXECUTABLE": "/home/yu/.venvs/px4-117/bin/python3"
+        },
+        "terminal.integrated.env.linux": {
+                "PATH": "/home/yu/.venvs/px4-117/bin:${env:PATH}",
+                "VIRTUAL_ENV": "/home/yu/.venvs/px4-117"
+        },
         "astyle.astylerc": "${workspaceFolder}/Tools/astyle/astylerc",
         "astyle.c.enable": true,
         "astyle.cpp.enable": true,
@@ -129,4 +137,48 @@
         "yaml.schemas": {
                 "${workspaceFolder}/validation/module_schema.yaml": "${workspaceFolder}/src/modules/*/module.yaml"
         },
+        "python.autoComplete.extraPaths": [
+                "/home/yu/xtdrone2_ws/build/xtdrone2",
+                "/home/yu/xtdrone2_ws/install/xtdrone2/lib/python3.12/site-packages",
+                "/home/yu/xtdrone2_ws/build/xtd2_test",
+                "/home/yu/xtdrone2_ws/install/xtd2_test/lib/python3.12/site-packages",
+                "/home/yu/xtdrone2_ws/build/xtd2_launch",
+                "/home/yu/xtdrone2_ws/install/xtd2_launch/lib/python3.12/site-packages",
+                "/home/yu/xtdrone2_ws/build/xtd2_control",
+                "/home/yu/xtdrone2_ws/install/xtd2_control/lib/python3.12/site-packages",
+                "/home/yu/xtdrone2_ws/build/xtd2_communication",
+                "/home/yu/xtdrone2_ws/install/xtd2_communication/lib/python3.12/site-packages",
+                "/home/yu/xtdrone2_ws/install/xtd2_msgs/lib/python3.12/site-packages",
+                "/home/yu/xtdrone2_ws/build/xtd2_gz_sim",
+                "/home/yu/xtdrone2_ws/install/xtd2_gz_sim/lib/python3.12/site-packages",
+                "/home/yu/xtdrone2_ws/install/px4_msgs/lib/python3.12/site-packages",
+                "/opt/ros/jazzy/opt/gz_sim_vendor/lib/python",
+                "/opt/ros/jazzy/opt/sdformat_vendor/lib/python",
+                "/opt/ros/jazzy/opt/gz_transport_vendor/lib/python",
+                "/opt/ros/jazzy/opt/gz_msgs_vendor/lib/python",
+                "/opt/ros/jazzy/opt/gz_math_vendor/lib/python",
+                "/opt/ros/jazzy/lib/python3.12/site-packages"
+        ],
+        "python.analysis.extraPaths": [
+                "/home/yu/xtdrone2_ws/build/xtdrone2",
+                "/home/yu/xtdrone2_ws/install/xtdrone2/lib/python3.12/site-packages",
+                "/home/yu/xtdrone2_ws/build/xtd2_test",
+                "/home/yu/xtdrone2_ws/install/xtd2_test/lib/python3.12/site-packages",
+                "/home/yu/xtdrone2_ws/build/xtd2_launch",
+                "/home/yu/xtdrone2_ws/install/xtd2_launch/lib/python3.12/site-packages",
+                "/home/yu/xtdrone2_ws/build/xtd2_control",
+                "/home/yu/xtdrone2_ws/install/xtd2_control/lib/python3.12/site-packages",
+                "/home/yu/xtdrone2_ws/build/xtd2_communication",
+                "/home/yu/xtdrone2_ws/install/xtd2_communication/lib/python3.12/site-packages",
+                "/home/yu/xtdrone2_ws/install/xtd2_msgs/lib/python3.12/site-packages",
+                "/home/yu/xtdrone2_ws/build/xtd2_gz_sim",
+                "/home/yu/xtdrone2_ws/install/xtd2_gz_sim/lib/python3.12/site-packages",
+                "/home/yu/xtdrone2_ws/install/px4_msgs/lib/python3.12/site-packages",
+                "/opt/ros/jazzy/opt/gz_sim_vendor/lib/python",
+                "/opt/ros/jazzy/opt/sdformat_vendor/lib/python",
+                "/opt/ros/jazzy/opt/gz_transport_vendor/lib/python",
+                "/opt/ros/jazzy/opt/gz_msgs_vendor/lib/python",
+                "/opt/ros/jazzy/opt/gz_math_vendor/lib/python",
+                "/opt/ros/jazzy/lib/python3.12/site-packages"
+        ],
 }
