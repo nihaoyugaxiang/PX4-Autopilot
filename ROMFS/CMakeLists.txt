@@ -197,6 +197,7 @@ list(APPEND OPTIONAL_BOARD_RC
 	rc.board_sensors
 	rc.board_extras
 	rc.board_mavlink
+	rc.board_boot_complete
 )
 
 foreach(board_rc_file ${OPTIONAL_BOARD_RC})

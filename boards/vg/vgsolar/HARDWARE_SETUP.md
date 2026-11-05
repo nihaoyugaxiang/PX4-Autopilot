@@ -25,6 +25,12 @@ python3 boards/vg/vgsolar/tools/make_first_flash.py
 当前输出名为 `build/vgsolar_first_flash/VGSolar_Rover_Copter_首次烧写.hex`。
 独立构建目录可通过 `--app-dir build/vg_vgsolar_rover_copter` 指定；脚本验证板号、向量、必要模块和 HEX 地址往返一致性。
 
+## 启动指示灯
+
+蓝灯 PD11 在应用平台初始化后以 4 Hz 闪烁，启动脚本执行完毕后常亮。常亮只表示启动流程结束，不表示校准、航向估计或解锁检查通过。红灯 PD10 保留错误／过载指示。
+
+在 QGC Console 执行 `led_control boot_status` 可回读状态；不要手动提前执行 `boot_complete`。ROM DFU 和 Bootloader 阶段不由此应用灯效控制。
+
 ## 开机驱动与端口
 
 | 功能 | 配置/端口 | 启动方式 |
@@ -129,6 +135,7 @@ Rover 另查 `rover_differential status`。Copter 另查 `control_allocator stat
 ## 离线回归
 
 ```bash
+python3 boards/vg/vgsolar/tools/test_boot_led.py
 python3 boards/vg/vgsolar/tools/test_startup.py build/vg_vgsolar_default
 python3 src/drivers/magnetometer/qmc5883p/test/test_driver.py
 ```

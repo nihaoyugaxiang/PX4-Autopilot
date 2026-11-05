@@ -135,6 +135,17 @@ def main():
     assert not modules.intersection({'px4io', 'dshot', 'tone_alarm', 'heater'})
     print('PASS: firmware package, board ID, flash limit and linked output drivers')
 
+    # The completion hook must be packaged and called after MAVLink boot completion.
+    boot_hook = (init / 'rc.board_boot_complete').read_text()
+    rc_script = (init / 'rcS').read_text()
+    assert rc_script.index('mavlink boot_complete') < rc_script.index('. $BOARD_RC_BOOT_COMPLETE')
+    output = subprocess.check_output(
+        ['bash', '-c', 'led_control() { echo "LED $*"; };\n' + boot_hook], text=True)
+    assert output.strip() == 'LED boot_complete', output
+    assert re.search(r'\bvgsolar_boot_led_complete$', symbols, re.M)
+    print('PASS: built startup LED hook, completion ordering and board backend linkage')
+
+
 
 if __name__ == '__main__':
     main()

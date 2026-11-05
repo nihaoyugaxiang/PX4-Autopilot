@@ -36,13 +36,22 @@
 #include <px4_platform_common/px4_config.h>
 #include <nuttx/compiler.h>
 #include <stdint.h>
+#include <stdbool.h>
 #include <stm32_gpio.h>
 
 #define GPIO_nLED_RED  (GPIO_OUTPUT|GPIO_OPENDRAIN|GPIO_SPEED_50MHz|GPIO_OUTPUT_SET|GPIO_PORTD|GPIO_PIN10)
 #define GPIO_nLED_BLUE (GPIO_OUTPUT|GPIO_OPENDRAIN|GPIO_SPEED_50MHz|GPIO_OUTPUT_SET|GPIO_PORTD|GPIO_PIN11)
 #define BOARD_HAS_CONTROL_STATUS_LEDS 1
 #define BOARD_OVERLOAD_LED LED_RED
-#define BOARD_ARMED_STATE_LED LED_BLUE
+// Blue is owned by the startup indicator, not Commander arming blink.
+#define VGSOLAR_BOOT_LED 1
+#ifndef __ASSEMBLY__
+__BEGIN_DECLS
+void vgsolar_boot_led_start(void);
+void vgsolar_boot_led_complete(void);
+bool vgsolar_boot_led_completed(void);
+__END_DECLS
+#endif
 
 #define SYSTEM_ADC_BASE STM32_ADC1_BASE
 #define ADC1_CH(n) (n)

@@ -98,6 +98,7 @@ __EXPORT int board_app_initialize(uintptr_t arg)
     drv_led_start();
     led_off(LED_RED);
     led_off(LED_BLUE);
+    vgsolar_boot_led_start();
     if (board_hardfault_init(2, true) != 0) { led_on(LED_RED); }
 #ifdef CONFIG_MMCSD
     if (stm32_sdio_initialize() != OK) {
