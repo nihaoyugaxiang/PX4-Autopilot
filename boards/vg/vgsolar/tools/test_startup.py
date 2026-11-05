@@ -141,7 +141,10 @@ def main():
     assert rc_script.index('mavlink boot_complete') < rc_script.index('. $BOARD_RC_BOOT_COMPLETE')
     output = subprocess.check_output(
         ['bash', '-c', 'led_control() { echo "LED $*"; };\n' + boot_hook], text=True)
-    assert output.strip() == 'LED boot_complete', output
+    assert output.strip() == 'LED boot_complete_wait', output
+    config = (build / 'NuttX/nuttx/.config').read_text()
+    assert 'CONFIG_SCHED_WAITPID=y' in config
+    assert 'CONFIG_NO_SERIAL_CONSOLE=y' in config
     assert re.search(r'\bvgsolar_boot_led_complete$', symbols, re.M)
     print('PASS: built startup LED hook, completion ordering and board backend linkage')
 

@@ -38,16 +38,16 @@
  * PC8 uses TIM3 here; TIM8 remains reserved for HRT.
  */
 constexpr io_timers_t io_timers[MAX_IO_TIMERS] = {
-    initIOTimer(Timer::Timer1, DMA{DMA::Index1}),
-    initIOTimer(Timer::Timer4, DMA{DMA::Index1}),
-    initIOTimer(Timer::Timer3),
+	initIOTimer(Timer::Timer1, DMA{DMA::Index1}),
+	initIOTimer(Timer::Timer4, DMA{DMA::Index1}),
+	initIOTimer(Timer::Timer3),
 };
 constexpr timer_io_channels_t timer_io_channels[MAX_TIMER_IO_CHANNELS] = {
-    initIOTimerChannel(io_timers, {Timer::Timer1, Timer::Channel3}, {GPIO::PortE, GPIO::Pin13}),
-    initIOTimerChannel(io_timers, {Timer::Timer1, Timer::Channel4}, {GPIO::PortE, GPIO::Pin14}),
-    initIOTimerChannel(io_timers, {Timer::Timer4, Timer::Channel3}, {GPIO::PortD, GPIO::Pin14}),
-    initIOTimerChannel(io_timers, {Timer::Timer4, Timer::Channel4}, {GPIO::PortD, GPIO::Pin15}),
-    initIOTimerChannel(io_timers, {Timer::Timer3, Timer::Channel3}, {GPIO::PortC, GPIO::Pin8}),
+	initIOTimerChannel(io_timers, {Timer::Timer1, Timer::Channel3}, {GPIO::PortE, GPIO::Pin13}),
+	initIOTimerChannel(io_timers, {Timer::Timer1, Timer::Channel4}, {GPIO::PortE, GPIO::Pin14}),
+	initIOTimerChannel(io_timers, {Timer::Timer4, Timer::Channel3}, {GPIO::PortD, GPIO::Pin14}),
+	initIOTimerChannel(io_timers, {Timer::Timer4, Timer::Channel4}, {GPIO::PortD, GPIO::Pin15}),
+	initIOTimerChannel(io_timers, {Timer::Timer3, Timer::Channel3}, {GPIO::PortC, GPIO::Pin8}),
 };
 constexpr io_timers_channel_mapping_t io_timers_channel_mapping =
-    initIOTimerChannelMapping(io_timers, timer_io_channels);
+	initIOTimerChannelMapping(io_timers, timer_io_channels);

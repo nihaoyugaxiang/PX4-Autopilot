@@ -36,12 +36,12 @@
 #include <nuttx/spi/spi.h>
 
 constexpr px4_spi_bus_t px4_spi_buses[SPI_BUS_MAX_BUS_ITEMS] = {
-    initSPIBus(SPI::Bus::SPI1, {
-        initSPIDevice(DRV_IMU_DEVTYPE_ICM42688P,
-            SPI::CS{GPIO::PortE, GPIO::Pin12}, SPI::DRDY{GPIO::PortB, GPIO::Pin2}),
-    }),
-    initSPIBus(SPI::Bus::SPI2, {
-        initSPIDevice(SPIDEV_FLASH(0), SPI::CS{GPIO::PortD, GPIO::Pin4}),
-    }),
+	initSPIBus(SPI::Bus::SPI1, {
+		initSPIDevice(DRV_IMU_DEVTYPE_ICM42688P,
+		SPI::CS{GPIO::PortE, GPIO::Pin12}, SPI::DRDY{GPIO::PortB, GPIO::Pin2}),
+	}),
+	initSPIBus(SPI::Bus::SPI2, {
+		initSPIDevice(SPIDEV_FLASH(0), SPI::CS{GPIO::PortD, GPIO::Pin4}),
+	}),
 };
 static constexpr bool unused = validateSPIConfig(px4_spi_buses);

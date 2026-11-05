@@ -56,58 +56,65 @@ __END_DECLS
 
 __EXPORT void board_on_reset(int status)
 {
-    const uint32_t actuator_inputs[] = {GPIO_VG_ACTUATOR_INPUTS};
-    px4_gpio_init(actuator_inputs, arraySize(actuator_inputs));
-    px4_arch_configgpio(GPIO_VG_VALVE_OFF);
-    px4_arch_configgpio(GPIO_VG_PUMP_OFF);
-    if (status >= 0) { up_mdelay(100); }
+	const uint32_t actuator_inputs[] = {GPIO_VG_ACTUATOR_INPUTS};
+	px4_gpio_init(actuator_inputs, arraySize(actuator_inputs));
+	px4_arch_configgpio(GPIO_VG_VALVE_OFF);
+	px4_arch_configgpio(GPIO_VG_PUMP_OFF);
+
+	if (status >= 0) { up_mdelay(100); }
 }
 
 __EXPORT void board_peripheral_reset(int ms)
 {
-    /* Sensor rails are fixed LDOs. PB2 is IMU DRDY, not a rail enable. */
+	/* Sensor rails are fixed LDOs. PB2 is IMU DRDY, not a rail enable. */
 #if !defined(BOOTLOADER)
-    board_spi_reset(ms, 0xffff);
+	board_spi_reset(ms, 0xffff);
 #else
-    (void)ms;
+	(void)ms;
 #endif
 }
 
 __EXPORT void stm32_boardinitialize(void)
 {
-    board_on_reset(-1);
-    board_autoled_initialize();
-    const uint32_t gpio[] = PX4_GPIO_INIT_LIST;
-    px4_gpio_init(gpio, arraySize(gpio));
+	board_on_reset(-1);
+	board_autoled_initialize();
+	const uint32_t gpio[] = PX4_GPIO_INIT_LIST;
+	px4_gpio_init(gpio, arraySize(gpio));
 #if !defined(BOOTLOADER)
-    stm32_spiinitialize();
+	stm32_spiinitialize();
 #endif
-    stm32_usbinitialize();
+	stm32_usbinitialize();
 }
 
 __EXPORT int board_app_initialize(uintptr_t arg)
 {
-    (void)arg;
+	(void)arg;
 #if !defined(BOOTLOADER)
-    px4_platform_init();
-    if (board_dma_alloc_init() < 0) { syslog(LOG_ERR, "[vgsolar] DMA allocation failed\n"); }
+	px4_platform_init();
+
+	if (board_dma_alloc_init() < 0) { syslog(LOG_ERR, "[vgsolar] DMA allocation failed\n"); }
+
 #if defined(SERIAL_HAVE_RXDMA)
-    static struct hrt_call serial_dma_call;
-    hrt_call_every(&serial_dma_call, 1000, 1000, (hrt_callout)stm32_serial_dma_poll, NULL);
+	static struct hrt_call serial_dma_call;
+	hrt_call_every(&serial_dma_call, 1000, 1000, (hrt_callout)stm32_serial_dma_poll, NULL);
 #endif
-    drv_led_start();
-    led_off(LED_RED);
-    led_off(LED_BLUE);
-    vgsolar_boot_led_start();
-    if (board_hardfault_init(2, true) != 0) { led_on(LED_RED); }
+	drv_led_start();
+	led_off(LED_RED);
+	led_off(LED_BLUE);
+	vgsolar_boot_led_start();
+
+	if (board_hardfault_init(2, true) != 0) { led_on(LED_RED); }
+
 #ifdef CONFIG_MMCSD
-    if (stm32_sdio_initialize() != OK) {
-        syslog(LOG_ERR, "[vgsolar] SD initialization failed\n");
-        led_on(LED_RED);
-    }
+
+	if (stm32_sdio_initialize() != OK) {
+		syslog(LOG_ERR, "[vgsolar] SD initialization failed\n");
+		led_on(LED_RED);
+	}
+
 #endif
-    px4_platform_configure();
-    syslog(LOG_INFO, "[vgsolar] Rover/Copter hardware baseline: 5 PWM outputs available\n");
+	px4_platform_configure();
+	syslog(LOG_INFO, "[vgsolar] Rover/Copter hardware baseline: 5 PWM outputs available\n");
 #endif /* !BOOTLOADER */
-    return OK;
+	return OK;
 }

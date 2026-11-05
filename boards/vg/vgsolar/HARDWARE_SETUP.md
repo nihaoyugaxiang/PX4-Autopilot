@@ -2,7 +2,7 @@
 
 2026-11-05，基于 `fix/vgsolar-qmc5883p-bringup` 的 `1501409c6c`。
 同一固件包含差速 Rover 和 Copter 控制栈，开机按 `SYS_AUTOSTART` 选择一套控制模块。
-本轮完成软件配置与离线验证，尚未连接实板验证这些改动。
+本轮已完成核心板启动、USB/QGC通信、Rover/Copter切换及启动参数保持验证：Copter连续三轮冷启动回读正确，Rover切换及冷启动回读正确。五路PWM已在该实板分配并回读，电气波形和实际执行器尚未测试。详见 [验证记录](VALIDATION.md)。
 
 ## 构建与升级
 
@@ -12,7 +12,7 @@ make -j4 vg_vgsolar_default
 ```
 
 输出 `build/vg_vgsolar_default/vg_vgsolar_default.px4`，用于已有配套 Bootloader 的板子通过 QGC 更新应用。
-本轮离线验证使用独立目录 `build/vg_vgsolar_rover_copter`，其中同名 `.px4` 是本轮生成的固件。
+以本分支当前提交重新构建的产物为准；早期独立构建目录中的文件可能属于旧版本。
 刷写前从 QGC 导出参数。已有板升级不需要重刷 Bootloader；首次 DFU 流程仍见 README。
 旧的 B0/B1/B2/B3 HEX 或 `build` 中其他分支的产物不包含本轮改动。
 
@@ -30,6 +30,8 @@ python3 boards/vg/vgsolar/tools/make_first_flash.py
 蓝灯 PD11 在应用平台初始化后以 4 Hz 闪烁，启动脚本执行完毕后常亮。常亮只表示启动流程结束，不表示校准、航向估计或解锁检查通过。红灯 PD10 保留错误／过载指示。
 
 在 QGC Console 执行 `led_control boot_status` 可回读状态；不要手动提前执行 `boot_complete`。ROM DFU 和 Bootloader 阶段不由此应用灯效控制。
+
+本板没有物理串口NSH控制台；启动完成钩子通过前台 C/C++ 等待命令保持初始NSH任务存活，避免控制台EOF导致任务退出及全局C++参数对象提前析构。USB MAVLink控制台继续可用。本次实板已通过Copter三轮及Rover一轮的冷启动参数回读；长期运行与后续外设接入仍需验证。`boot_complete_wait`只供启动脚本使用，不要在交互控制台手动调用。
 
 ## 开机驱动与端口
 
@@ -76,6 +78,18 @@ PB1 蜂鸣器使用 TIM3 CH4，与 MAIN5 共用定时器；标准 `tone_alarm` �
 阀 PE5 保持高电平关闭，泵 PE6 保持低电平关闭；不驱动机器人清洁机构。
 只有五路硬件输出，Copter 可按实际接线配置四旋翼，不能直接驱动六/八个独立电机。
 
+## 可选的 APM 接线输出配置
+
+通用固件仍以五路输出未分配为默认值。本次实板已保存的Rover映射为`102、101、301、302、303`，仅板上参数变化不会自动进入Git。
+
+仓库提供 [rover_apm_wiring.params](config/rover_apm_wiring.params)，用于已选择`SYS_AUTOSTART=50000`的差速车。先导出原参数、隔离执行器动力，再在QGC参数页面加载该文件。它只设置输出映射和50 Hz速率；上锁/失效值由当前板级配置决定，加载后须回读确认。文件不切换机架，不覆盖传感器校准或电调方向。
+
+- MAIN1/2分别对应左行走Motor 2、右行走Motor 1。
+- MAIN3/4/5分配独立外设1/2/3（301/302/303），对应升降、后滚刷、前滚刷。当前仅预留接口；APM自动清洁流程、NCU桥接未接入。
+- 原APM左行走反相、实际停止脉宽、中位和输出范围须独立验证。核心板参数读回不证明电气输出或设备停止行为。
+- [outputs_disabled.params](config/outputs_disabled.params)可将五路功能恢复为未分配。
+- 切到Copter后重新配置机架和电机输出；不要直接使用Rover接线文件。
+
 ## 选择机型
 
 在 QGC 的 Airframe 页面选择并应用：
@@ -88,7 +102,7 @@ PB1 蜂鸣器使用 TIM3 CH4，与 MAIN5 共用定时器；标准 `tone_alarm` �
 也不要把另一机型的完整参数文件直接覆盖回来。通过 QGC 的标准应用/重启流程切换。
 
 Rover 启动 `rover_differential` 和 Rover land detector。
-在 Actuators 页面将已核实接线的 MAIN1/MAIN2 分别分配 Motor 1/2（功能号 101/102）；左右顺序由当前 Rover 源码定义。
+按原APM接线，MAIN1/PE13接左行走，应分配Motor 2（102）；MAIN2/PE14接右行走，应分配Motor 1（101）。当前逆运动学输出顺序为右、左：`control[0]=throttle-speed_diff`，`control[1]=throttle+speed_diff`。
 左右电机支持正反转，须检查 `CA_R_REV=3`，按实际电调设置中立、上锁和失效脉宽；原 AP 左电机反向不能盲目照搬。
 `RD_WHEEL_TRACK`、`RO_MAX_THR_SPEED` 等车辆参数必须按实车配置，位置/航向控制还需要有效估计。
 
@@ -130,7 +144,7 @@ Rover 另查 `rover_differential status`。Copter 另查 `control_allocator stat
 6. 保存一个明确的参数，完全断电再上电回读；检查 SD 新日志可以正常记录。
 7. 完成上述检查后再按对应机型进行架空低速/拆桨电机测试、失效保护验证和控制参数调试。Copter 的电机方向、重心、振动、供电冗余与飞行验证需独立完成。
 
-上述项目本轮均未新增实板通过记录。既有历史证据见 `BRINGUP.md`；校准、波形和飞行结果只能由实际设备测试确认。
+已完成项目与未完成项目分别记录在 [VALIDATION.md](VALIDATION.md)，历史记录见 `BRINGUP.md`。核心板测试不能代替波形、执行器和整车／飞行验收。
 
 ## 离线回归
 
@@ -144,6 +158,6 @@ python3 src/drivers/magnetometer/qmc5883p/test/test_driver.py
 覆盖新板默认 Rover、已保存的 Copter 选择、可选自动调参、串口路由、TELEM2 默认关闭/按需开启、已保存安装方向和 PWM 参数优先级、传感器回退和启动失败提示，以及固件包内容一致性。
 这不是 NuttX 仿真，不验证调度、硬件总线、电气波形或控制性能。
 
-本轮结果：独立目录构建与标准 `make -j4 vg_vgsolar_default` 均通过，应用映像 1,330,552 字节，占 1,792 KiB FLASH 的 72.51%；Bootloader 构建也通过。
+本轮应用及Bootloader构建通过；映像大小随提交和诊断选项变化，以当前构建输出及HEX核对记录为准。
 上述启动回归和 QMC5883P 故障注入回归均通过；生成的 QGC 输出元数据分组为 `[1,2]`、`[3,4]`、`[5]`。
 合并 HEX 已生成，Bootloader/应用板号均为 0，地址分别为 `0x08000000` / `0x08020000`，经 GNU objcopy 往返逐字节一致性检查通过。

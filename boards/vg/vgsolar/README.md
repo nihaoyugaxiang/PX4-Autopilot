@@ -8,8 +8,10 @@
 GPS1、TELEM1、RC 分别使用 USART6、UART5、UART7；USART3 已释放调试控制台并提供为可选 TELEM2，默认关闭。
 
 完整配置、机型切换、PWM 引脚和实板检查见 [硬件与机型配置说明](HARDWARE_SETUP.md)。
-编译通过只证明软件集成；本轮没有新增实板验收，罗盘航向、PWM 电气波形、GPS/遥控及整车/飞行验证仍需完成。
+本轮核心板已完成机型切换和启动参数保持验证：Copter三轮、Rover一轮冷启动回读符合预期，五路输出映射已在实板保存并由驱动回读。完整记录及待验证项见 [VALIDATION.md](VALIDATION.md)。罗盘航向、PWM电气波形、GPS/遥控及整车/飞行验证仍需完成。
 清洁业务、编码器和定制伴随协议不在本次硬件基线范围内。DShot、PX4IO 和蜂鸣器定时器驱动未启用，原因见配置说明。
+
+可选的机器人输出参数配置见 [config/README.md](config/README.md)；通用固件不会自动启用机器人执行器。启动结束后的无控制台参数保持修复已纳入本分支源码。
 
 ## 以下为 B0/B1 历史交付说明
 
@@ -17,7 +19,7 @@ GPS1、TELEM1、RC 分别使用 USART6、UART5、UART7；USART3 已释放调试�
 
 该板型已从第一阶段“注册骨架”推进到可编译的最小板级移植。基线为 PX4 v1.17.0，目标 `vg_vgsolar_default`。B0 的目的是验证 CPU/NuttX 启动、差速 Rover 运行、USB/MAVLink、传感器和存储；不用于行驶或清洁作业。
 
-## 新板首次烧写（最新说明）
+## B0新板首次烧写（历史说明）
 
 首次烧写前，用户确认这是一块从未成功运行程序的新板，只有 USB。新板首次使用 STM32 芯片自带 ROM DFU 和 STM32CubeProgrammer 写入“Bootloader + B0 主程序”的合并 HEX，先前只刷 `.px4` 的流程只适用于已经有兼容 Bootloader 的板。
 

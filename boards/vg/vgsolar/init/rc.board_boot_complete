@@ -1,3 +1,4 @@
 #!/bin/sh
-# Startup completed, even when GPS/RC/battery preflight checks are still pending.
-led_control boot_complete
+# Mark boot complete and keep this consoleless initial NSH alive by waiting
+# for a foreground command that sleeps until reboot. Do not invoke manually.
+led_control boot_complete_wait
