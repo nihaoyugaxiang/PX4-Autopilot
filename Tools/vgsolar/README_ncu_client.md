@@ -72,3 +72,52 @@ Windows示例把端口换成COM号，并使用 `python`；全局参数必须放�
 ## 下一步的验收记录
 
 实际连通后记录：RK3588串口名、飞控固件SHA、VGSolar动态模式号、双方状态输出、10Hz状态持续性、参数读应答、急停／解除状态、断开速度帧后的停车时间、30分钟通信和10次重连结果。没有这些现场证据前，不把客户端离线测试标为实机通信通过。
+
+
+## 固定线束的NCU TX/RX交换（2026-11-06）
+
+支持`VGS_CC_SWAP`的新固件可使用STM32H7 USART硬件SWAP交换NCU USART3
+`/dev/ttyS2`的TX/RX。默认0；需要交换时，在上锁且执行器动力断开状态下，
+通过QGC参数页面或控制台设置`param set VGS_CC_SWAP 1`、`param save`，
+然后重启。`vgsolar_link status`应显示`swap=1`。
+设回0并重启恢复原方向。此参数不改变USB、RC、MAVLink或其他UART。
+模块启动时检查参数及ioctl返回值，失败则关闭NCU串口并报告错误。
+
+PC端仍用115200/8N1。先执行monitor确认状态帧，再查询只读参数以验证双向链路。
+芯片SWAP不能代替TTL电平、共地和正确接口确认，也不能绕过线束中的单向缓冲器。
+
+### USART3 physical-link diagnostics (diag-v1)
+
+`vgsolar_link status` prints short lines with driver RX/TX byte counts, the last
+non-transient read/write errno (retained after later successes), zero-byte writes,
+and frame/error counters. Counters reset when the module is restarted. TX bytes
+mean successful `write()` returns, not measured pin activity or peer receipt.
+
+On the VGSolar target it also reads USART3 CR1/CR2/CR3/BRR/ISR and PB10/PB11
+mode, AF and instantaneous level. It never reads RDR or writes registers.
+Expected GPIO mode is 2, AF is 7; `SWAP_hw=1` should agree with `VGS_CC_SWAP=1`.
+Single GPIO samples cannot establish baud rate or prove a waveform. Keep the
+vehicle disarmed and actuator power isolated for communication diagnostics.
+
+The current robot schematic routes onboard CH340 TX through Q10/U1/Q8 to
+PB10 (`BP_USART3_TX`); PB11 (`BP_USART3_RX`) drives Q11/U3/Q9 into CH340 RX.
+Thus onboard CH340 communication requires SWAP=1 for these captured schematics.
+This direction is derived from the 2026-11-06 netlists, not physical continuity
+or a hardware acceptance test. The isolated CH340 circuit uses GND1/5VA;
+MCU-side GND and GND1 must not be treated as interchangeable measurement grounds.
+
+#### UART task-group ownership fix (diag-v2)
+
+The CLI startup task only creates/schedules the module. UART open, configuration,
+read, write and normal close now run in `lp_default`. NuttX task groups have
+separate file-descriptor tables: opening in `task_spawn()` and then using that
+number from `Run()` can yield EBADF or access an unrelated worker descriptor.
+Thus pre-fix TX/RX counts cannot identify USART3 I/O, and raw RX bytes need not
+come from the NCU. Startup now returns after scheduling; asynchronous UART-open
+failure logs an error and cleans up the module. Check `vgsolar_link status` for
+`NCU diag-v2` and `active=1` after startup.
+
+`check_uart_owner.py` compiles production startup and Run lifecycle control flow
+against a separate-task-group descriptor model. It covers deferred open, no
+reopening on successive cycles, close on stop, stop before first open, and open
+failure cleanup; it does not replace board/OS validation.

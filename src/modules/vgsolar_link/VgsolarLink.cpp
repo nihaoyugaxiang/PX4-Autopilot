@@ -8,6 +8,14 @@
 
 #include <fcntl.h>
 #include <termios.h>
+#include <sys/ioctl.h>
+#ifdef __PX4_NUTTX
+#include <nuttx/serial/tioctl.h>
+#if defined(CONFIG_ARCH_BOARD_VG_VGSOLAR)
+#include <hardware/stm32_uart.h>
+#include <hardware/stm32_gpio.h>
+#endif
+#endif
 #include <unistd.h>
 
 #include <drivers/drv_sensor.h>
@@ -46,12 +54,8 @@ public:
 		if (!instance) { return PX4_ERROR; }
 		_object.store(instance);
 		_task_id = task_id_is_work_queue;
-		if (!instance->open_uart()) {
-			_object.store(nullptr);
-			_task_id = -1;
-			delete instance;
-			return PX4_ERROR;
-		}
+		// NuttX file descriptors belong to a task group. Open from Run(),
+		// which owns all UART I/O and normal shutdown, not this CLI task.
 		instance->ScheduleOnInterval(10000); // 100Hz解析；周期状态帧在内部限为10Hz。
 		return PX4_OK;
 	}
@@ -68,15 +72,44 @@ public:
 
 	int print_status() override
 	{
-		PX4_INFO("uart=%s active=%u rx=%" PRIu32 " bad_checksum=%" PRIu32 " bad_length=%" PRIu32
-			 " timeout=%" PRIu32 " rejected=%" PRIu32 " tx=%" PRIu32 " tx_errors=%" PRIu32 " rx_errors=%" PRIu32,
-			 SERIAL_PATH, _active.load(), _rx_frames.load(), _bad_checksum.load(), _bad_length.load(), _timeouts.load(),
-			 _rejected_commands.load(), _tx_frames.load(), _tx_errors.load(), _rx_errors.load());
+		PX4_INFO("NCU diag-v2 uart=%s active=%u", SERIAL_PATH, _active.load());
+		PX4_INFO("rx_frames=%" PRIu32 " rx_bytes=%" PRIu32 " rx_errors=%" PRIu32 " last_rx_errno=%d",
+			 _rx_frames.load(), _rx_bytes.load(), _rx_errors.load(), _last_rx_errno.load());
+		PX4_INFO("tx_frames=%" PRIu32 " tx_bytes=%" PRIu32 " tx_errors=%" PRIu32 " last_tx_errno=%d",
+			 _tx_frames.load(), _tx_bytes.load(), _tx_errors.load(), _last_tx_errno.load());
+		PX4_INFO("bad_checksum=%" PRIu32 " bad_length=%" PRIu32 " timeout=%" PRIu32 " rejected=%" PRIu32,
+			 _bad_checksum.load(), _bad_length.load(), _timeouts.load(), _rejected_commands.load());
+		PX4_INFO("tx_zero_writes=%" PRIu32 " (byte counts are driver I/O, not pin waveforms)", _tx_zero_writes.load());
+		PX4_INFO("NCU RX/TX swap=%u (VGS_CC_SWAP; applied at module start)", unsigned(_swap_enabled));
+		print_uart_registers();
 		PX4_INFO("NCU bridge: commands routed to VGSolar mode; check mode and hardware enables");
 		return 0;
 	}
 
 private:
+	void print_uart_registers()
+	{
+#if defined(__PX4_NUTTX) && defined(CONFIG_ARCH_BOARD_VG_VGSOLAR)
+		// Read control/status only. Never read RDR, clear flags or write GPIO/UART here.
+		const auto reg = [](uintptr_t address) { return *reinterpret_cast<volatile const uint32_t *>(address); };
+		const uint32_t cr1 = reg(STM32_USART3_BASE + STM32_USART_CR1_OFFSET);
+		const uint32_t cr2 = reg(STM32_USART3_BASE + STM32_USART_CR2_OFFSET);
+		const uint32_t cr3 = reg(STM32_USART3_BASE + STM32_USART_CR3_OFFSET);
+		const uint32_t brr = reg(STM32_USART3_BASE + STM32_USART_BRR_OFFSET);
+		const uint32_t isr = reg(STM32_USART3_BASE + STM32_USART_ISR_OFFSET);
+		const uint32_t moder = reg(STM32_GPIOB_BASE + STM32_GPIO_MODER_OFFSET);
+		const uint32_t afrh = reg(STM32_GPIOB_BASE + STM32_GPIO_AFRH_OFFSET);
+		const uint32_t idr = reg(STM32_GPIOB_BASE + STM32_GPIO_IDR_OFFSET);
+		PX4_INFO("USART3 CR1=%08" PRIx32 " CR2=%08" PRIx32 " CR3=%08" PRIx32, cr1, cr2, cr3);
+		PX4_INFO("USART3 BRR=%08" PRIx32 " ISR=%08" PRIx32 " SWAP_hw=%u", brr, isr,
+			 unsigned((cr2 & USART_CR2_SWAP) != 0));
+		PX4_INFO("PB10 mode=%u AF=%u level=%u; PB11 mode=%u AF=%u level=%u",
+			 unsigned((moder >> 20) & 3), unsigned((afrh >> 8) & 15), unsigned((idr >> 10) & 1),
+			 unsigned((moder >> 22) & 3), unsigned((afrh >> 12) & 15), unsigned((idr >> 11) & 1));
+		PX4_INFO("Expected PB10/PB11 mode=2 AF=7; levels are single samples, not waveforms");
+#endif
+	}
+
 	bool open_uart()
 	{
 		_fd = ::open(SERIAL_PATH, O_RDWR | O_NOCTTY | O_NONBLOCK);
@@ -93,12 +126,45 @@ private:
 		config.c_cflag |= CS8 | CLOCAL | CREAD;
 		config.c_cc[VMIN] = 0;
 		config.c_cc[VTIME] = 0;
-		if (tcsetattr(_fd, TCSANOW, &config) != 0 || tcflush(_fd, TCIFLUSH) != 0) {
+		if (tcsetattr(_fd, TCSANOW, &config) != 0) {
 			PX4_ERR("UART setup failed for %s", SERIAL_PATH);
 			close_uart();
 			return false;
 		}
-		PX4_INFO("NCU command/status link opened %s at 115200 8N1", SERIAL_PATH);
+
+		int32_t swap = 0;
+		const param_t swap_param = param_find("VGS_CC_SWAP");
+
+		if (swap_param == PARAM_INVALID || param_get(swap_param, &swap) != PX4_OK || (swap != 0 && swap != 1)) {
+			PX4_ERR("Invalid VGS_CC_SWAP; expected 0 or 1");
+			close_uart();
+			return false;
+		}
+
+#if defined(__PX4_NUTTX) && defined(CONFIG_STM32H7_USART_SWAP)
+		// Explicitly clear SWAP when disabled, including after a module restart.
+		if (ioctl(_fd, TIOCSSWAP, swap ? SER_SWAP_ENABLED : 0) != 0) {
+			PX4_ERR("NCU RX/TX swap configuration failed for %s", SERIAL_PATH);
+			close_uart();
+			return false;
+		}
+#else
+		if (swap != 0) {
+			PX4_ERR("NCU RX/TX swap is not supported by this driver");
+			close_uart();
+			return false;
+		}
+#endif
+		_swap_enabled = swap == 1;
+
+		if (tcflush(_fd, TCIFLUSH) != 0) {
+			PX4_ERR("UART flush failed for %s", SERIAL_PATH);
+			close_uart();
+			return false;
+		}
+
+		PX4_INFO("NCU command/status link opened %s at 115200 8N1 (swap=%u)", SERIAL_PATH,
+			 unsigned(_swap_enabled));
 		_active.store(true);
 		return true;
 	}
@@ -284,6 +350,7 @@ private:
 		while (_tx_offset < _tx_length) {
 			const ssize_t written = ::write(_fd, _tx_buffer + _tx_offset, _tx_length - _tx_offset);
 			if (written > 0) {
+				_tx_bytes.fetch_add(static_cast<uint32_t>(written));
 				_tx_offset += static_cast<size_t>(written);
 				while (_tx_queued_frames > 0 && _tx_frame_ends[0] <= _tx_offset) {
 					_tx_frames.fetch_add(1);
@@ -292,7 +359,10 @@ private:
 				}
 				continue;
 			}
-			if (written < 0 && (errno == EAGAIN || errno == EINTR)) { break; }
+			const int write_errno = written < 0 ? errno : 0;
+			if (written < 0 && (write_errno == EAGAIN || write_errno == EINTR)) { break; }
+			if (written < 0) { _last_tx_errno.store(write_errno); }
+			else { _tx_zero_writes.fetch_add(1); }
 			_tx_errors.fetch_add(1);
 			_tx_offset = _tx_length = _tx_queued_frames = 0;
 			break;
@@ -418,12 +488,17 @@ private:
 			exit_and_cleanup();
 			return;
 		}
-		if (_fd < 0) { return; }
+		if (_fd < 0 && !open_uart()) {
+			ScheduleClear();
+			exit_and_cleanup();
+			return;
+		}
 		const uint64_t now = hrt_absolute_time();
 		flush_tx();
 		uint8_t bytes[128];
 		const ssize_t count = ::read(_fd, bytes, sizeof(bytes));
 		if (count > 0) {
+			_rx_bytes.fetch_add(static_cast<uint32_t>(count));
 			for (ssize_t i = 0; i < count; ++i) {
 				const vgsolar_link::RxResult result = _parser.push(bytes[i], hrt_absolute_time(), _rx_frame);
 				if (result == vgsolar_link::RxResult::Valid) { process_frame(_rx_frame); }
@@ -432,8 +507,12 @@ private:
 				else if (result == vgsolar_link::RxResult::Timeout) { _timeouts.fetch_add(1); }
 				else if (result == vgsolar_link::RxResult::RejectedSource) { _bad_length.fetch_add(1); }
 			}
-		} else if (count < 0 && errno != EAGAIN && errno != EINTR) {
-			_rx_errors.fetch_add(1);
+		} else if (count < 0) {
+			const int read_errno = errno;
+			if (read_errno != EAGAIN && read_errno != EINTR) {
+				_last_rx_errno.store(read_errno);
+				_rx_errors.fetch_add(1);
+			}
 		}
 		if (_parser.expire(now) == vgsolar_link::RxResult::Timeout) { _timeouts.fetch_add(1); }
 		vgsolar_link_ack_s ack{};
@@ -460,11 +539,14 @@ private:
  uint64_t _last_valid_rx{0}, _last_diagnostic{0};
  uint32_t _drop_event{0}, _drop_periodic{0};
 	int _fd{-1};
+	bool _swap_enabled{false};
 	px4::atomic<bool> _active{false};
 	uint64_t _last_tx_us{0};
 	vgsolar_link::NavigationReportTracker _navigation_reports{};
 	px4::atomic<uint32_t> _rx_frames{0}, _bad_checksum{0}, _bad_length{0}, _timeouts{0}, _rejected_commands{0};
 	px4::atomic<uint32_t> _tx_frames{0}, _tx_errors{0}, _rx_errors{0};
+	px4::atomic<uint32_t> _rx_bytes{0}, _tx_bytes{0}, _tx_zero_writes{0};
+	px4::atomic<int> _last_rx_errno{0}, _last_tx_errno{0};
 	uint8_t _tx_buffer[128]{};
 	size_t _tx_frame_ends[TX_FRAME_QUEUE_CAPACITY]{};
 	size_t _tx_queued_frames{0};

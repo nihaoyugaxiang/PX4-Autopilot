@@ -66,5 +66,37 @@ script = (ROOT / 'ROMFS/px4fmu_common/init.d/rcS').read_text()
 assert script.index('set BOARD_RC_BOOT_COMPLETE ${R}') < script.index('unset R\n')
 assert script.index('mavlink boot_complete') < script.index('. $BOARD_RC_BOOT_COMPLETE')
 assert 'BOARD_ARMED_STATE_LED LED_BLUE' not in (ROOT/'boards/vg/vgsolar/src/board_config.h').read_text()
-assert (ROOT/'boards/vg/vgsolar/init/rc.board_boot_complete').read_text().strip().endswith('led_control boot_complete')
+hook = (ROOT/'boards/vg/vgsolar/init/rc.board_boot_complete').read_text()
+subprocess.run(['bash', '-n'], input=hook, text=True, check=True)
+assert hook.strip().endswith('led_control boot_complete_wait')
+command = (ROOT/'src/systemcmds/led_control/led_control.cpp').read_text()
+start = command.index('static void vgsolar_wait_for_reboot()')
+end = command.index('\n#endif', start)
+helper = command[start:end]
+# Compile the actual production C++ wait loop. A host sleep stub interrupts
+# the first sleep so the test verifies blocking without entering an endless loop.
+with tempfile.TemporaryDirectory(prefix='vgsolar-startup-guard-') as folder:
+    folder = Path(folder)
+    harness = r'''#include <cassert>
+struct SleepReached {};
+static int log_calls;
+#define PX4_INFO(...) (++log_calls)
+static int usleep(unsigned int duration) {
+ assert(duration == 1000000); throw SleepReached{};
+}
+''' + helper + r'''
+int main() {
+ bool sleeping = false;
+ try { vgsolar_wait_for_reboot(); } catch (const SleepReached &) { sleeping = true; }
+ assert(sleeping && log_calls == 1);
+ return 0;
+}
+'''
+    (folder/'guard.cpp').write_text(harness)
+    subprocess.run(['g++','-std=c++17','-Wall','-Wextra','-Werror',
+                    str(folder/'guard.cpp'),'-o',str(folder/'guard')],check=True)
+    subprocess.run([str(folder/'guard')],check=True)
+assert 'vgsolar_boot_led_complete();' in command
+assert 'strcmp(argv[1], "boot_complete_wait") == 0' in command
+print('PASS: production C++ startup guard emits entry marker and sleeps; board hook selects foreground wait')
 print('PASS: production LED GPIO polarity, 4Hz blink, cancellation, steady completion, idempotence, red isolation and startup ordering')

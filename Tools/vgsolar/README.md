@@ -29,3 +29,5 @@ python3 -B Tools/vgsolar/run_offline_tests.py --sanitize --all
 旧只读NCU脚本和重复测试已被新客户端覆盖，因此移除。吸盘／导航／安全门控／协议测试及host替身有实际回归用途，保留且不链接进固件。Python缓存和临时输出不提交；构建和固件交付文件保存在既有build目录／外部outputs，不加入Git。
 
 虚拟串口另一端是测试应答器，生产模式主机测试替换了调度与物理接口。两者都不等于实际RK3588到飞控的完整链路、SITL/HIL或整车测试。
+
+双向PWM解锁中位回归：`python3 -B Tools/vgsolar/check_arming_neutral.py`，已纳入 `--all`；使用生产限幅状态机与宿主时钟/PWM映射替身，不代表实物波形验收。

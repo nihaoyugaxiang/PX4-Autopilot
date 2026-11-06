@@ -34,6 +34,7 @@
 #include <board_config.h>
 #include <uORB/topics/actuator_servos.h>
 #include <uORB/topics/actuator_armed.h>
+#include <uORB/topics/input_rc.h>
 #include <uORB/topics/vgsolar_inputs.h>
 #include <uORB/topics/vgsolar_safety_request.h>
 #include <matrix/matrix/math.hpp>
@@ -41,6 +42,8 @@
 #include <uORB/topics/vehicle_attitude.h>
 #include <mathlib/mathlib.h>
 #include <cstring>
+#include <cstdlib>
+#include <unistd.h>
 
 class VgsolarMode : public ModuleBase<VgsolarMode>, public px4::ScheduledWorkItem
 {
@@ -49,6 +52,10 @@ public:
 
 	static int task_spawn(int, char *[])
 	{
+		if (_gpio_test_active) {
+			PX4_WARN("GPIO test is active; wait for it to finish");
+			return PX4_ERROR;
+		}
 		auto *instance = new VgsolarMode();
 		if (!instance) { return PX4_ERROR; }
 		_object.store(instance);
@@ -57,12 +64,39 @@ public:
 		return PX4_OK;
 	}
 
-	static int custom_command(int, char *[]) { return print_usage("unknown command"); }
+	static int custom_command(int argc, char *argv[])
+	{
+		if (argc == 2 && strcmp(argv[0], "test-rc-valve") == 0) {
+			char *end = nullptr;
+			const long channel = strtol(argv[1], &end, 10);
+			if (!end || *end != '\0' || end == argv[1] || channel < 1 || channel > input_rc_s::RC_INPUT_MAX_CHANNELS) {
+				PX4_WARN("specify RC channel 1..18");
+				return PX4_ERROR;
+			}
+			if (is_running() || _gpio_test_active) {
+				PX4_WARN("stop vgsolar_mode before testing GPIO outputs");
+				return PX4_ERROR;
+			}
+			return run_gpio_test(static_cast<unsigned>(channel), false);
+		}
+		if (argc == 1 && (strcmp(argv[0], "test-valve") == 0 || strcmp(argv[0], "test-pump") == 0)) {
+			// ModuleBase serializes commands; the normal mode must be stopped.
+			if (is_running() || _gpio_test_active) {
+				PX4_WARN("stop vgsolar_mode before testing GPIO outputs");
+				return PX4_ERROR;
+			}
+			return run_gpio_test(0, strcmp(argv[0], "test-pump") == 0);
+		}
+		return print_usage("unknown command");
+	}
 	static int print_usage(const char *reason = nullptr)
 	{
 		if (reason) { PX4_WARN("%s", reason); }
 		PRINT_MODULE_USAGE_NAME("vgsolar_mode", "mode");
 		PRINT_MODULE_USAGE_COMMAND("start");
+		PRINT_MODULE_USAGE_COMMAND("test-valve");
+		PRINT_MODULE_USAGE_COMMAND("test-pump");
+		PRINT_MODULE_USAGE_COMMAND("test-rc-valve");
 		PRINT_MODULE_USAGE_DEFAULT_COMMANDS();
 		return 0;
 	}
@@ -75,6 +109,116 @@ public:
 	}
 
 private:
+	// Accessed only under the ModuleBase mutex, including task_spawn().
+	static bool _gpio_test_active;
+	static int run_gpio_test(unsigned channel, bool pump)
+	{
+		_gpio_test_active = true;
+		// The module mutex is global across PX4. Never hold it for the session.
+		pthread_mutex_unlock(&px4_modules_mutex);
+		const int result = channel ? test_rc_valve(channel) : test_gpio(pump);
+		pthread_mutex_lock(&px4_modules_mutex);
+		_gpio_test_active = false;
+		return result;
+	}
+
+	static int test_rc_valve(unsigned channel)
+	{
+		uORB::Subscription vehicle_sub{ORB_ID(vehicle_status)};
+		uORB::Subscription armed_sub{ORB_ID(actuator_armed)};
+		uORB::Subscription rc_sub{ORB_ID(input_rc)};
+		if (!gpio_test_allowed(vehicle_sub, armed_sub)) {
+			PX4_WARN("test requires fresh disarmed status, no kill/lockdown, VGS_ENABLE=0 and VGS_CLN_EN=0");
+			return PX4_ERROR;
+		}
+		struct OutputsOff {
+			~OutputsOff() {
+				px4_arch_gpiowrite(GPIO_VG_PUMP_OFF, false);
+				px4_arch_gpiowrite(GPIO_VG_VALVE_OFF, true);
+			}
+		} outputs_off;
+		px4_arch_gpiowrite(GPIO_VG_PUMP_OFF, false);
+		px4_arch_gpiowrite(GPIO_VG_VALVE_OFF, true);
+		PX4_INFO("RC%u valve test: 60 seconds, LOW first (<=1300), HIGH energizes (>=1700); pump OFF", channel);
+		const uint64_t start = hrt_absolute_time();
+		bool low_seen = false, valve_on = false;
+		while (hrt_absolute_time() - start < 60000000) {
+			if (!gpio_test_allowed(vehicle_sub, armed_sub)) {
+				PX4_WARN("RC valve test aborted: permission or status changed");
+				return PX4_ERROR;
+			}
+			input_rc_s rc{};
+			const bool copied = rc_sub.copy(&rc);
+			const uint64_t now = hrt_absolute_time();
+			const bool valid = copied && !rc.rc_lost && !rc.rc_failsafe && rc.channel_count >= channel
+				&& rc.timestamp != 0 && rc.timestamp <= now && now - rc.timestamp <= 300000
+				&& rc.timestamp_last_signal != 0 && rc.timestamp_last_signal <= now && now - rc.timestamp_last_signal <= 300000
+				&& rc.values[channel - 1] >= 900 && rc.values[channel - 1] <= 2100;
+			if (!valid) { low_seen = false; }
+			else if (rc.values[channel - 1] <= 1300) { low_seen = true; }
+			const bool on = valid && low_seen && rc.values[channel - 1] >= 1700;
+			if (on != valve_on) {
+				valve_on = on;
+				px4_arch_gpiowrite(GPIO_VG_VALVE_OFF, !on);
+				PX4_INFO("RC%u valve %s", channel, on ? "ON" : "OFF");
+			}
+			px4_usleep(10000);
+		}
+		PX4_INFO("RC valve test finished; outputs OFF on return");
+		return PX4_OK;
+	}
+
+	static bool gpio_test_allowed(uORB::Subscription &vehicle_sub, uORB::Subscription &armed_sub)
+	{
+		vehicle_status_s vehicle{};
+		actuator_armed_s armed{};
+		const uint64_t now = hrt_absolute_time();
+		if (!vehicle_sub.copy(&vehicle) || !armed_sub.copy(&armed)
+		    || vehicle.timestamp == 0 || now < vehicle.timestamp || now - vehicle.timestamp > 1000000
+		    || armed.timestamp == 0 || now < armed.timestamp || now - armed.timestamp > 1000000
+		    || vehicle.arming_state != vehicle_status_s::ARMING_STATE_DISARMED
+		    || armed.armed || armed.lockdown || armed.kill || armed.termination || armed.in_esc_calibration_mode) {
+			return false;
+		}
+		const char *names[] = {"VGS_ENABLE", "VGS_CLN_EN"};
+		for (const char *name : names) {
+			int32_t enabled = -1;
+			const param_t handle = param_find(name);
+			if (handle == PARAM_INVALID || param_get(handle, &enabled) != 0 || enabled != 0) { return false; }
+		}
+		return true;
+	}
+
+	static int test_gpio(bool pump)
+	{
+		uORB::Subscription vehicle_sub{ORB_ID(vehicle_status)};
+		uORB::Subscription armed_sub{ORB_ID(actuator_armed)};
+		if (!gpio_test_allowed(vehicle_sub, armed_sub)) {
+			PX4_WARN("test requires fresh disarmed status, no kill/lockdown, VGS_ENABLE=0 and VGS_CLN_EN=0");
+			return PX4_ERROR;
+		}
+		struct OutputsOff {
+			~OutputsOff() {
+				px4_arch_gpiowrite(GPIO_VG_PUMP_OFF, false);
+				px4_arch_gpiowrite(GPIO_VG_VALVE_OFF, true);
+			}
+		} outputs_off;
+		// Independent electrical tests only: pump test leaves the valve OFF.
+		px4_arch_gpiowrite(GPIO_VG_PUMP_OFF, false);
+		px4_arch_gpiowrite(GPIO_VG_VALVE_OFF, true);
+		PX4_INFO("1 second GPIO test: %s; both outputs OFF on return", pump ? "pump PE6 HIGH" : "valve PE5 LOW");
+		const uint64_t start = hrt_absolute_time();
+		px4_arch_gpiowrite(pump ? GPIO_VG_PUMP_OFF : GPIO_VG_VALVE_OFF, pump);
+		while (hrt_absolute_time() - start < 1000000) {
+			px4_usleep(10000);
+			if (!gpio_test_allowed(vehicle_sub, armed_sub)) {
+				PX4_WARN("GPIO test aborted: permission or status changed");
+				return PX4_ERROR;
+			}
+		}
+		return PX4_OK;
+	}
+
 	static float number(const char *name, float fallback) {
 		float value = fallback;
 		const param_t handle = param_find(name);
@@ -1047,6 +1191,8 @@ private:
 	uORB::Publication<rover_rate_setpoint_s> _rate_pub{ORB_ID(rover_rate_setpoint)};
 	uORB::Publication<vgsolar_mode_status_s> _mode_status_pub{ORB_ID(vgsolar_mode_status)};
 };
+
+bool VgsolarMode::_gpio_test_active = false;
 
 extern "C" __EXPORT int vgsolar_mode_main(int argc, char *argv[])
 {

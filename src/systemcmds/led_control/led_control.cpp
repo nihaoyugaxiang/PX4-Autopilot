@@ -110,19 +110,38 @@ static void run_led_test1()
 	PX4_INFO("Done");
 }
 
+#ifdef VGSOLAR_BOOT_LED
+static void vgsolar_wait_for_reboot()
+{
+	PX4_INFO("VGS_STARTUP_GUARD active pid=%ld; initial NSH waits until reboot", (long)getpid());
+
+	while (true) {
+		usleep(1000000);
+	}
+}
+#endif
+
 int
 led_control_main(int argc, char *argv[])
 {
 #ifdef VGSOLAR_BOOT_LED
- if (argc == 2 && strcmp(argv[1], "boot_complete") == 0) {
-  vgsolar_boot_led_complete();
-  return 0;
- }
- if (argc == 2 && strcmp(argv[1], "boot_status") == 0) {
-  PX4_INFO("VGSolar blue LED: %s (not an arming-ready indication)",
-    vgsolar_boot_led_completed() ? "startup complete / steady" : "initializing / flashing");
-  return 0;
- }
+
+	if (argc == 2 && (strcmp(argv[1], "boot_complete") == 0 || strcmp(argv[1], "boot_complete_wait") == 0)) {
+		vgsolar_boot_led_complete();
+
+		if (strcmp(argv[1], "boot_complete_wait") == 0) {
+			vgsolar_wait_for_reboot();
+		}
+
+		return 0;
+	}
+
+	if (argc == 2 && strcmp(argv[1], "boot_status") == 0) {
+		PX4_INFO("VGSolar blue LED: %s (not an arming-ready indication)",
+			 vgsolar_boot_led_completed() ? "startup complete / steady" : "initializing / flashing");
+		return 0;
+	}
+
 #endif
 
 	int myoptind = 1;
@@ -269,6 +288,12 @@ $ led_control blink -c blue -l 0 -n 5
 )DESCR_STR");
 
 	PRINT_MODULE_USAGE_NAME("led_control", "command");
+
+#ifdef VGSOLAR_BOOT_LED
+	PRINT_MODULE_USAGE_COMMAND_DESCR("boot_status", "Read the board startup indicator state");
+	PRINT_MODULE_USAGE_COMMAND_DESCR("boot_complete", "Mark board startup complete (startup script only)");
+	PRINT_MODULE_USAGE_COMMAND_DESCR("boot_complete_wait", "Mark startup complete and keep its owner alive (startup script only)");
+#endif
 
 	PRINT_MODULE_USAGE_COMMAND_DESCR("test", "Run a test pattern");
 	PRINT_MODULE_USAGE_COMMAND_DESCR("on", "Turn LED on");

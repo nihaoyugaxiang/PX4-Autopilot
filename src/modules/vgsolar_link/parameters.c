@@ -44,3 +44,18 @@ PARAM_DEFINE_FLOAT(VGS_BAT_MAX, 25.2f);
  * @group VGSolar
  */
 PARAM_DEFINE_INT32(VGS_CC_LOG, 1);
+
+
+/**
+ * Swap NCU UART TX and RX pins
+ *
+ * Applies only to the USART3 NCU link on /dev/ttyS2. Set to one when the fixed
+ * wiring requires TX/RX pin swapping. Uses the STM32 UART hardware SWAP bit;
+ * does not invert signal polarity or change the USB, RC or MAVLink UARTs.
+ * Configure while disarmed and reboot to apply. Default preserves normal wiring.
+ *
+ * @boolean
+ * @reboot_required true
+ * @group VGSolar
+ */
+PARAM_DEFINE_INT32(VGS_CC_SWAP, 0);
