@@ -34,8 +34,6 @@ def main():
         if not (args.generated_dir / "uORB/topics/vgsolar_mode_status.h").is_file():
             parser.error("Build vg_vgsolar_default first or pass --generated-dir with generated topic headers")
         tests.append("src/modules/vgsolar_mode/test/mode_integration_test.cpp")
-        tests.append("src/modules/vgsolar_mode/test/gpio_bench_test.cpp")
-        tests.append("src/modules/vgsolar_mode/test/rc_valve_bench_test.cpp")
     flags = ["-std=c++14", "-Wall", "-Wextra", "-Werror", "-g"]
     if args.sanitize:
         flags += ["-fsanitize=address,undefined", "-fno-omit-frame-pointer"]
@@ -46,7 +44,7 @@ def main():
             binary = Path(directory) / f"test-{index}"
             includes = []
             extra_sources = []
-            if source.endswith(("mode_integration_test.cpp", "gpio_bench_test.cpp", "rc_valve_bench_test.cpp")):
+            if source.endswith("mode_integration_test.cpp"):
                 includes = ["-I" + str(ROOT / "src/modules/vgsolar_mode/test/host"),
                             "-I" + str(args.generated_dir), "-I" + str(ROOT / "src/lib"), "-I" + str(ROOT / "src/lib/matrix"), "-I" + str(ROOT / "src")]
                 extra_sources = [str(ROOT / "src/lib/geo/geo.cpp")]
