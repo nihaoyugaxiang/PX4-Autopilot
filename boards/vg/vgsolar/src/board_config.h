@@ -76,6 +76,9 @@ __END_DECLS
 #define SDIO_MINOR 0
 #define GPIO_OTGFS_VBUS (GPIO_INPUT|GPIO_PULLDOWN|GPIO_SPEED_100MHz|GPIO_PORTA|GPIO_PIN9)
 #define BOARD_ADC_USB_CONNECTED (px4_arch_gpioread(GPIO_OTGFS_VBUS))
+// No dedicated 5V rail ADC exists in the VGSolar hardware definition.
+// Keep power-source/overcurrent checks; only the unmeasured rail check is unavailable.
+#define BOARD_HAS_NO_5V_SENSE 1
 #define BOARD_ADC_SERVO_VALID 0
 #define RC_SERIAL_PORT "/dev/ttyS6"
 

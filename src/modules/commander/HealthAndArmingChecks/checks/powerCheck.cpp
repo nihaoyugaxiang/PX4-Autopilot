@@ -32,6 +32,7 @@
  ****************************************************************************/
 
 #include "powerCheck.hpp"
+#include <px4_platform_common/px4_config.h>
 #include <lib/circuit_breaker/circuit_breaker.h>
 
 using namespace time_literals;
@@ -80,6 +81,7 @@ void PowerChecks::checkAndReport(const Context &context, Report &reporter)
 	if (_system_power_sub.copy(&system_power)) {
 		// Check avionics rail voltages (if USB isn't connected)
 		if (!system_power.usb_connected) {
+#if !defined(BOARD_HAS_NO_5V_SENSE)
 			float avionics_power_rail_voltage = system_power.voltage5v_v;
 
 			const float low_error_threshold = 4.7f;
@@ -126,6 +128,8 @@ void PowerChecks::checkAndReport(const Context &context, Report &reporter)
 							     (double)avionics_power_rail_voltage);
 				}
 			}
+
+#endif // BOARD_HAS_NO_5V_SENSE
 
 			const int power_module_count = math::countSetBits(system_power.brick_valid);
 

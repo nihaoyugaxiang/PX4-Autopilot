@@ -24,6 +24,10 @@ static hrt_abstime now = 1000000;
 static hrt_abstime hrt_absolute_time() { return now; }
 static hrt_abstime hrt_elapsed_time(const hrt_abstime *t) { return now - *t; }
 constexpr int MAX_ACTUATORS = 4;
+struct FunctionProvider {
+ bool prearm_allowed = true;
+ bool allowPrearmControl() const { return prearm_allowed; }
+};
 class MixingOutput {
 public:
  enum class OutputLimitState { OFF, RAMP, ON };
@@ -32,6 +36,7 @@ public:
  bool prearmed = false;
  hrt_abstime _output_time_armed = 0;
  uint32_t _reversible_mask = 3;
+ FunctionProvider *_functions[MAX_ACTUATORS] = {};
  uint16_t _disarmed_value[MAX_ACTUATORS] = {0, 0, 900, 0};
  uint16_t _current_output_value[MAX_ACTUATORS] = {};
  bool isPrearmed() const { return prearmed; }
@@ -44,6 +49,8 @@ public:
 ''' + production + r'''
 int main() {
  MixingOutput m;
+ FunctionProvider esc{false};
+ m._functions[2] = &esc;
  float values[4] = {0.f, 0.f, 0.f, NAN};
  m.output_limit_calc(false, 4, values);
  assert(m._current_output_value[0] == 0 && m._current_output_value[2] == 900);
@@ -83,6 +90,31 @@ int main() {
  no_ramp._output_ramp_up = false;
  no_ramp.output_limit_calc(true, 4, values);
  assert(no_ramp._current_output_value[0] == 1500 && no_ramp._current_output_value[2] == 1500);
+ // A servo/RC passthrough that can run prearmed must retain its selected
+ // pulse across formal arming, rather than replaying the ESC ramp from zero.
+ FunctionProvider servo;
+ for (float command : {-1.f, 0.f, 1.f}) {
+  MixingOutput lift;
+  lift._functions[3] = &servo;
+  lift._disarmed_value[3] = 0;
+  values[3] = command;
+  const auto expected = lift.output_limit_calc_single(3, command);
+  lift.prearmed = true;
+  lift.output_limit_calc(false, 4, values);
+  assert(lift._current_output_value[3] == expected);
+  lift.prearmed = false;
+  const auto armed_at = now;
+  for (auto dt : {0ULL, 100000ULL, 250000ULL, 499999ULL, 500000ULL, 600000ULL}) {
+   now = armed_at + dt;
+   lift.output_limit_calc(true, 4, values);
+   assert(lift._current_output_value[3] == expected);
+  }
+  values[3] = NAN;
+  lift.output_limit_calc(true, 4, values);
+  assert(lift._current_output_value[3] == 0);
+  lift.output_limit_calc(false, 4, values);
+  assert(lift._current_output_value[3] == 0);
+ }
 }
 '''
 harness = harness.replace('#include <cassert>', '#include <cassert>\n#include <initializer_list>')
@@ -92,4 +124,4 @@ with tempfile.TemporaryDirectory(prefix='vgsolar-arming-neutral-') as directory:
     subprocess.run(['g++', '-std=c++17', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined',
                     str(directory / 'check.cpp'), '-o', str(directory / 'check')], check=True)
     subprocess.run([str(directory / 'check')], check=True)
-print('PASS: production output-limit arming/rearming stays at reversible neutral; signed commands, invalid/disarmed output and non-reversible ramp preserved')
+print('PASS: production output-limit reversible neutral and prearmed servo continuity; signed commands, invalid/disarmed output and ordinary ESC ramp preserved')

@@ -648,9 +648,11 @@ MixingOutput::output_limit_calc(const bool armed, const int num_channels, const 
 			for (int i = 0; i < num_channels; i++) {
 				// Ramp from disarmed value to currently desired output that would apply without ramp
 				uint16_t desired_output = output_limit_calc_single(i, output[i]);
-				if (_reversible_mask & (1u << i)) {
+				if ((_reversible_mask & (1u << i)) || (_functions[i] && _functions[i]->allowPrearmControl())) {
 					// A reversible ESC stops at center, not at the low end of its PWM range.
 					// Sweeping from a disabled/disarmed pulse through that range can command reverse.
+					// Prearm-capable outputs (servos/RC passthrough) must also retain their
+					// selected pulse when arming instead of replaying an ESC startup ramp.
 					_current_output_value[i] = desired_output;
 
 				} else {
